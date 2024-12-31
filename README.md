@@ -24,6 +24,17 @@ _This cheatsheet is based on version 0.8.28_
         -   [`address` and `address payable`](#address-and-address-payable)
         -   [`bytes` and `bytesN`](#bytes-and-bytesn)
         -   [`string`](#string)
+    -   [Variables \& Visibility](#variables--visibility)
+        -   [State Variables](#state-variables)
+        -   [Local Variables](#local-variables)
+        -   [Global (Built-in) Variables](#global-built-in-variables)
+        -   [Visibility Keywords](#visibility-keywords)
+            -   [Visibility Accessible By Common Use Cases](#visibility-accessible-by-common-use-cases)
+            -   [`public`](#public)
+            -   [`external`](#external)
+            -   [`internal`](#internal)
+            -   [`private`](#private)
+            -   [Best Practices for Visibility](#best-practices-for-visibility)
 
 ## Getting Started
 
@@ -146,3 +157,177 @@ bytes32 public myHash = keccak256(abi.encodePacked("Solidity"));
 ```solidity
 string public greeting = "Hello, World!";
 ```
+
+## Variables & Visibility
+
+In Solidity, variables are categorized based on **where** they are declared and **how** they can be accessed:
+
+1. State Variables
+2. Local Variables
+3. Global (Built-in) Variables
+4. Visibility Keywords
+
+### State Variables
+
+-   **Declared inside** a contract but **outside** of any function.
+-   **Stored permanently** on the blockchain as part of the contract’s state (in storage).
+-   **Gas cost**: Writing and updating state variables costs gas. Reading is cheaper but not free.
+-   **Initialization**: If not explicitly initialized, they are given default values (e.g., 0 for integers, false for booleans, address(0) for addresses).
+
+```solidity
+pragma solidity ^0.8.28;
+
+contract MyContract {
+    // State variables
+    uint256 public count;         // defaults to 0
+    bool public isActive = true;
+
+    // ...
+}
+```
+
+**Best Practice**
+
+-   Mark state variables as `public` only if you need external read access.
+-   Use `private` or `internal` for variables that should not be directly accessible outside the contract.
+
+### Local Variables
+
+-   **Declared and used within function scope** (including function parameters).
+-   **Stored in memory or stack**, not in contract storage (unless explicitly specified otherwise).
+-   **Cheaper than state variables** because they’re only used temporarily during function execution.
+
+```solidity
+function multiplyByTwo(uint256 _x) public pure returns (uint256) {
+    // Local variable
+    uint256 result = _x * 2;
+    return result; // This value is not saved on-chain
+}
+```
+
+**Note**
+
+-   Local variables are destroyed after the function call ends.
+-   For arrays, structs, or strings passed as function parameters, you often must specify memory or calldata (in external functions) to define the data location.
+
+### Global (Built-in) Variables
+
+These are pre-defined variables and functions that give information about the blockchain, transaction, or message context. Examples include:
+
+-   `msg.sender` — the address that called the function.
+-   `msg.value` — how much Ether (in wei) was sent with the call.
+-   `msg.data` — the data sent with the call.
+-   `block.timestamp` — the current block timestamp (a.k.a. Unix epoch time).
+-   `block.number` — the current block number.
+-   `block.chainid` — the chain ID of the blockchain.
+-   `tx.gasprice` — the gas price of the transaction.
+
+These variables are read from the environment and cannot be directly overwritten. They do not require a declaration like normal variables.
+
+For more global variables, see [here](https://docs.soliditylang.org/en/v0.8.28/units-and-global-variables.html#units-and-globally-available-variables).
+
+Example:
+
+```solidity
+function whoCalledMe() public view returns (address) {
+    // msg.sender is a global variable
+    return msg.sender;
+}
+```
+
+### Visibility Keywords
+
+In Solidity, visibility determines which parts of the contract or external entities can access a function or state variable.
+
+#### Visibility Accessible By Common Use Cases
+
+| Visibility   | Accessible By                                                                                    | Common Use Cases                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+| **public**   | - Externally (via transactions or other contracts) <br/> - Internally within the contract itself | Functions/variables that need to be read or called externally                         |
+| **external** | - Externally only (cannot be called internally without `this.`)                                  | Functions intended solely for external interaction (e.g., an API for Dapp users)      |
+| **internal** | - Only within this contract or inheriting contracts                                              | Helper functions and state variables used by derived contracts                        |
+| **private**  | - Only within this specific contract                                                             | Sensitive logic or state variables that shouldn't be accessed even by child contracts |
+
+**Note**
+
+-   `public` and `private` keywords are used to define the visibility of state variables and functions.
+-   `external` and `internal` keywords are used to define the visibility of functions only.
+
+#### `public`
+
+-   A `public` state variable automatically generates a getter function. For example:
+
+```solidity
+uint256 public count;
+```
+
+This allows reading `count` externally. The contract ABI will have a function `count()` that returns the variable’s value.
+
+```solidity
+function getCount() public view returns (uint256) {
+    return count;
+}
+```
+
+-   A `public` function can be called from:
+    -   Outside via a transaction or another contract
+    -   Inside by other functions within the same contract
+
+#### `external`
+
+-   Functions only callable from outside the contract (or via `this.functionName(...)`).
+-   Typically used to indicate a function is part of the contract’s external interface.
+-   Slightly more gas-efficient if you don’t plan to call that function from within the contract.
+
+```solidity
+function externalFunction() external view returns (uint256) {
+    return address(this).balance;
+}
+
+// Inside another function in the same contract, you'd have to call: (but not recommended)
+this.externalFunction();
+```
+
+#### `internal`
+
+-   Accessible **only** within the contract and child contracts that inherit from it.
+-   Not part of the public ABI, so cannot be called externally.
+-   Useful for shared logic across parent-child relationships.
+
+```solidity
+function internalHelper() internal pure returns (uint256) {
+    return 42;
+}
+```
+
+#### `private`
+
+-   **Only** accessible within the same contract.
+-   Not accessible in derived contracts.
+-   Typically used for sensitive or low-level logic that you don’t want child contracts to override or manipulate directly.
+
+```solidity
+bool private privateVariable = true;
+
+function privateHelper() private pure returns (uint256) {
+    return 123;
+}
+```
+
+#### Best Practices for Visibility
+
+1. Explicitly Specify Visibility
+
+    - In Solidity, the default function visibility is internal if not specified.
+    - Always define visibility (public, external, internal, private) for every function and state variable to avoid confusion and ensure clarity in your code.
+
+2. Use external for Functions Called Externally Only
+
+    - If a function is never intended to be called internally, mark it external.
+    - external functions can be slightly more gas-efficient than public because Solidity handles arguments differently for external calls.
+
+3. Restrict Access Whenever Possible
+
+    - Follow the principle of least privilege.
+    - Use private or internal whenever you don’t need external or inherited access.
+    - This minimizes the contract’s attack surface and reduces the likelihood of unintended behavior.
