@@ -2,7 +2,7 @@
 
 Welcome to the Solidity Cheat Sheet—created especially for new Solidity developers! Whether you’re just starting to explore the fundamentals of smart contract programming or need a convenient reference while building your DApps, this guide has you covered.
 
-_This cheatsheet is based on version 0.8.28_
+_This cheatsheet is based on version 0.8.29_
 
 ### References
 
@@ -12,29 +12,39 @@ _This cheatsheet is based on version 0.8.28_
 
 ## Table of Contents
 
--   [Solidity Cheatsheet](#solidity-cheatsheet)
-    -   [References](#references)
-    -   [Table of Contents](#table-of-contents)
-    -   [Getting Started](#getting-started)
-    -   [Specifying compiler version](#specifying-compiler-version)
-    -   [Basic Data Types](#basic-data-types)
-        -   [Summary](#summary)
-        -   [`bool`](#bool)
-        -   [Integers: `uint` and `int`](#integers-uint-and-int)
-        -   [`address` and `address payable`](#address-and-address-payable)
-        -   [`bytes` and `bytesN`](#bytes-and-bytesn)
-        -   [`string`](#string)
-    -   [Variables \& Visibility](#variables--visibility)
-        -   [State Variables](#state-variables)
-        -   [Local Variables](#local-variables)
-        -   [Global (Built-in) Variables](#global-built-in-variables)
-        -   [Visibility Keywords](#visibility-keywords)
-            -   [Visibility Accessible By Common Use Cases](#visibility-accessible-by-common-use-cases)
-            -   [`public`](#public)
-            -   [`external`](#external)
-            -   [`internal`](#internal)
-            -   [`private`](#private)
-            -   [Best Practices for Visibility](#best-practices-for-visibility)
+- [Solidity Cheatsheet](#solidity-cheatsheet)
+    - [References](#references)
+  - [Table of Contents](#table-of-contents)
+  - [Getting Started](#getting-started)
+  - [Specifying compiler version](#specifying-compiler-version)
+  - [Basic Data Types](#basic-data-types)
+    - [Summary](#summary)
+    - [`bool`](#bool)
+    - [Integers: `uint` and `int`](#integers-uint-and-int)
+    - [`address` and `address payable`](#address-and-address-payable)
+    - [`bytes` and `bytesN`](#bytes-and-bytesn)
+    - [`string`](#string)
+  - [Variables \& Visibility](#variables--visibility)
+    - [State Variables](#state-variables)
+    - [Local Variables](#local-variables)
+    - [Global (Built-in) Variables](#global-built-in-variables)
+    - [Visibility Keywords](#visibility-keywords)
+      - [Visibility Accessible By Common Use Cases](#visibility-accessible-by-common-use-cases)
+      - [`public`](#public)
+      - [`external`](#external)
+      - [`internal`](#internal)
+      - [`private`](#private)
+      - [Best Practices for Visibility](#best-practices-for-visibility)
+  - [Functions](#functions)
+    - [Basic Syntax](#basic-syntax)
+    - [Visibility](#visibility)
+    - [State Mutability: view, pure, and payable](#state-mutability-view-pure-and-payable)
+    - [Return Values](#return-values)
+    - [Function Parameters and Data Location](#function-parameters-and-data-location)
+    - [Overloading and Overriding](#overloading-and-overriding)
+    - [Internal vs External Calls](#internal-vs-external-calls)
+    - [Gas Considerations](#gas-considerations)
+    - [Best Practices for Functions](#best-practices-for-functions)
 
 ## Getting Started
 
@@ -42,7 +52,7 @@ _This cheatsheet is based on version 0.8.28_
 // SPDX-License-Identifier: MIT
 // Filename: HelloWorld.sol
 // The function `greet()` will return the message "Hello, Solidity!"
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.29;
 
 contract HelloWorld {
     string public message = "Hello, Solidity!";
@@ -56,9 +66,9 @@ contract HelloWorld {
 ## Specifying compiler version
 
 ```solidity
-pragma solidity 0.8.28; // The contract must be compiled with exactly version 0.8.28
+pragma solidity 0.8.29; // The contract must be compiled with exactly version 0.8.29
 
-pragma solidity ^0.8.28; // Any version greater than or equal to 0.8.28, but strictly less than 0.9.0
+pragma solidity ^0.8.29; // Any version greater than or equal to 0.8.29, but strictly less than 0.9.0
 
 pragma solidity >=0.8.0 <0.9.0; // Any version greater than or equal to 0.8.0, but strictly less than 0.9.0
 ```
@@ -175,7 +185,7 @@ In Solidity, variables are categorized based on **where** they are declared and 
 -   **Initialization**: If not explicitly initialized, they are given default values (e.g., 0 for integers, false for booleans, address(0) for addresses).
 
 ```solidity
-pragma solidity ^0.8.28;
+pragma solidity ^0.8.29;
 
 contract MyContract {
     // State variables
@@ -224,7 +234,7 @@ These are pre-defined variables and functions that give information about the bl
 
 These variables are read from the environment and cannot be directly overwritten. They do not require a declaration like normal variables.
 
-For more global variables, see [here](https://docs.soliditylang.org/en/v0.8.28/units-and-global-variables.html#units-and-globally-available-variables).
+For more global variables, see [here](https://docs.soliditylang.org/en/v0.8.29/units-and-global-variables.html#units-and-globally-available-variables).
 
 Example:
 
@@ -331,3 +341,172 @@ function privateHelper() private pure returns (uint256) {
     - Follow the principle of least privilege.
     - Use private or internal whenever you don’t need external or inherited access.
     - This minimizes the contract’s attack surface and reduces the likelihood of unintended behavior.
+
+## Functions
+
+Solidity functions define the behavior of your smart contract. They can be used to read or modify the contract’s state, interact with other contracts, or perform computations.
+
+### Basic Syntax
+
+```solidity
+function functionName(Type param1, Type param2) [visibility] [stateMutability] returns (ReturnType) {
+    // function body
+}
+```
+
+Where:
+
+-   `functionName` is the identifier (name) of the function.
+-   `param1, param2` are parameters with specified types.
+-   `visibility` can be `public`, `external`, `internal`, or `private`.
+-   `stateMutability` includes `view`, `pure`, `payable`, or can be omitted if the function modifies state.
+-   `returns (ReturnType)` specifies the output type(s) (can be multiple).
+
+### Visibility
+
+As covered in [Visibility Keywords](#visibility-keywords), a function’s visibility determines who can call it. The most common visibilities for functions are:
+
+-   `public`: callable from outside and inside the contract
+-   `external`: callable from outside only (or via `this.functionName()` inside)
+-   `internal`: callable only inside this contract and derived contracts
+-   `private`: callable only inside this contract
+
+### State Mutability: view, pure, and payable
+
+1. `view`
+
+-   The function can read state variables but cannot modify them.
+
+```solidity
+function getCount() public view returns (uint256) {
+    return count;  // reading a state variable
+}
+```
+
+2. `pure`
+
+-   The function cannot read or modify state variables (nor use `this.balance` or `block.number` etc.).
+-   Ideal for pure math or utility functions.
+
+```solidity
+function addNumbers(uint256 a, uint256 b) public pure returns (uint256) {
+    return a + b;
+}
+```
+
+3. `payable`
+
+-   The function can accept Ether sent to it.
+-   Without `payable`, the function will reject any Ether transfer.
+
+```solidity
+function deposit() public payable {}
+```
+
+### Return Values
+
+You can return one or more values from a function. There are multiple ways to do so:
+
+1. Return Single Value
+
+```solidity
+function getNumber() public pure returns (uint256) {
+    return 42;
+}
+```
+
+2. Return Multiple Values
+
+```solidity
+function getValues() public pure returns (uint256, bool) {
+    return (100, true);
+}
+```
+
+3. Named Returns
+
+-   You can name your return variables for clarity.
+
+```solidity
+function namedReturn() public pure returns (uint256 count, bool status) {
+    count = 10;
+    status = true;
+}
+```
+
+-   This can sometimes make the code more readable but is optional.
+
+### Function Parameters and Data Location
+
+For parameters of reference types (e.g., `string`, `bytes`, `arrays`, `structs`), you must specify the data location (memory, storage, or calldata):
+
+-   `memory`: non-persistent, used for local copies within a function.
+-   `calldata`: non-persistent, immutable/read-only, only used in **external** function parameters. It’s more gas-efficient than memory for external calls because it doesn’t copy the data.
+-   `storage`: persists in the contract’s state storage (rarely used as a parameter location, mostly used for state variables). Can be used for internal or private function if you want to pass a reference to an existing storage variable.
+
+Example using calldata:
+
+```solidity
+function concatStrings(
+    string calldata str1,
+    string calldata str2
+) external pure returns (string memory) {
+    return string(abi.encodePacked(str1, str2));
+}
+```
+
+### Overloading and Overriding
+
+-   **Overloading**: Defining multiple functions with the same name but different parameters.
+
+```solidity
+function setValue(uint256 _value) public {
+    // ...
+}
+
+function setValue(uint256 _value, bool _flag) public {
+    // ...
+}
+```
+
+-   **Overriding**: When a function in a child contract overrides a function from a parent contract.
+    -   The parent function must be marked as `virtual`.
+    -   The child function must use `override`.
+
+```solidity
+contract Parent {
+    function greet() public virtual pure returns (string memory) {
+        return "Hello from Parent";
+    }
+}
+
+contract Child is Parent {
+    function greet() public pure override returns (string memory) {
+        return "Hello from Child";
+    }
+}
+```
+
+### Internal vs External Calls
+
+-   When you call a function internally in Solidity, it uses jump instructions without creating a new message call. This is more gas-efficient.
+-   When you call an external function from within the same contract (e.g., this.myExternalFunction()), it triggers a new contract call. This is less gas-efficient and changes msg.sender to the contract itself.
+
+### Gas Considerations
+
+1. Function Complexity:
+
+    - Avoid excessive loops or large data copy operations within a single function.
+    - If possible, break down large operations into smaller functions or use off-chain solutions for heavy computations.
+
+2. Function Parameters:
+
+    - For external functions, using calldata for parameters instead of memory is cheaper in many cases.
+    - Passing large arrays around increases gas due to data copy overhead.
+
+### Best Practices for Functions
+
+-   Use public or external only if the function needs to be called from outside. Otherwise, consider internal or private.
+-   Separate reading (view/pure) and state-changing functions for clarity and potential performance benefits.
+-   Overloading can be handy, but use it sparingly; it can cause confusion if the parameter differences are subtle.
+-   Overriding is essential for inheritance hierarchies. Make sure to mark parent functions as virtual and child overrides as override.
