@@ -19,6 +19,8 @@ _This cheatsheet is based on version 0.8.29_
   - [`string`](#string)
 - [Variables \& Visibility](#variables--visibility)
   - [State Variables](#state-variables)
+    - [Constants](#constants)
+    - [Immutable Variables](#immutable-variables)
   - [Local Variables](#local-variables)
   - [Global (Built-in) Variables](#global-built-in-variables)
   - [Visibility Keywords](#visibility-keywords)
@@ -48,6 +50,16 @@ _This cheatsheet is based on version 0.8.29_
   - [Best Practices for Loops](#best-practices-for-loops)
     - [Vanila Loop](#vanila-loop)
     - [Array Loop](#array-loop)
+- [Error Handling](#error-handling)
+  - [`require` vs `revert` vs `assert`](#require-vs-revert-vs-assert)
+    - [`require(condition, "Error Message")`](#requirecondition-error-message)
+    - [`revert("Error Message")`](#reverterror-message)
+    - [`assert(condition)`](#assertcondition)
+    - [Key Points:](#key-points)
+  - [Custom Errors (\>=0.8.4)](#custom-errors-084)
+    - [Benefits:](#benefits)
+  - [`try/catch` for External Calls](#trycatch-for-external-calls)
+  - [Best Practices for Error Handling](#best-practices-for-error-handling)
 - [References](#references)
 
 # Getting Started
@@ -200,10 +212,28 @@ contract MyContract {
 }
 ```
 
+### Constants
+
+-   Constants are declared using the `constant` keyword.
+
+```solidity
+uint256 public constant constantVariable = 10;
+```
+
+### Immutable Variables
+
+-   Immutable variables are declared using the `immutable` keyword.
+-   They are initialized once and cannot be changed after that.
+
+```solidity
+uint256 public immutable immutableVariable = 10;
+```
+
 **Best Practice**
 
 -   Mark state variables as `public` only if you need external read access.
 -   Use `private` or `internal` for variables that should not be directly accessible outside the contract.
+-   Use `immutable` for variables that should not be changed after initialization.
 
 ## Local Variables
 
@@ -675,6 +705,132 @@ function loopArray_cached(uint256[] calldata ns) public returns (uint256 sum) {
 ```
 
 -   We know the length won't change during execution and we can reduce the number of ns.length calls to just 1 for a modest reduction in gas.
+
+# Error Handling
+
+## `require` vs `revert` vs `assert`
+
+### `require(condition, "Error Message")`
+
+-   Verifies **input conditions** or **other external conditions**.
+-   Commonly used at the start of a function to validate function inputs, access control, or other preconditions (e.g., ensuring msg.value is sufficient).
+
+```solidity
+require(msg.sender == owner, "Not the owner");
+require(amount > 0, "Amount must be greater than 0");
+```
+
+-   If the condition fails, it reverts with the provided error message.
+-
+
+### `revert("Error Message")`
+
+-   **Explicitly** trigger a revert from any part of the code.
+-   Often used to handle more complex logic or custom flows.
+
+```solidity
+if (balance < amount) {
+    revert("Insufficient balance to withdraw");
+}
+```
+
+### `assert(condition)`
+
+-   Used to check for internal errors and invariants that should never fail.
+-   If an assert fails, it indicates a bug in your code (e.g., an invariant has been violated).
+-   From Solidity 0.8.x onwards, failing assert also reverts the transaction but uses a different kind of error—often highlighting a critical code issue.
+
+```solidity
+assert(totalSupply == sumOfAllBalances);
+```
+
+### Key Points:
+
+-   `require` is for **invalid user inputs** or **external conditions**.
+-   `revert` is a **manual** revert trigger.
+-   `assert` is for **internal invariants**—if it fails, something is fundamentally wrong.
+
+## Custom Errors (>=0.8.4)
+
+-   Custom errors allow you to define error types with optional parameters.
+-   They are more **gas-efficient** than revert strings because the encoded error data is smaller.
+
+```solidity
+error Unauthorized(address caller);
+error InvalidAmount(uint256 requested, uint256 available);
+
+function restrictedAction() public view {
+    if (msg.sender != owner) {
+        revert Unauthorized(msg.sender);
+    }
+    // ...
+}
+
+function withdraw(uint256 amount) public {
+    if (amount > balances[msg.sender]) {
+        revert InvalidAmount(amount, balances[msg.sender]);
+    }
+    // ...
+}
+```
+
+### Benefits:
+
+-   Saves gas compared to long string messages.
+-   Provides typed parameters, making debugging easier off-chain.
+-   Especially useful in large or complex contracts.
+
+## `try/catch` for External Calls
+
+-   When calling **external** functions or doing contract creations, you can use `try/catch` to handle failures without reverting your entire function:
+
+```solidity
+interface DataFeed { function getData(address token) external returns (uint value); }
+
+contract FeedConsumer {
+    DataFeed feed;
+    uint errorCount;
+    function rate(address token) public returns (uint value, bool success) {
+        // Permanently disable the mechanism if there are
+        // more than 10 errors.
+        require(errorCount < 10);
+        try feed.getData(token) returns (uint v) {
+            return (v, true);
+        } catch Error(string memory /*reason*/) {
+            // This is executed in case
+            // revert was called inside getData
+            // and a reason string was provided.
+            errorCount++;
+            return (0, false);
+        } catch Panic(uint /*errorCode*/) {
+            // This is executed in case of a panic,
+            // i.e. a serious error like division by zero
+            // or overflow. The error code can be used
+            // to determine the kind of error.
+            errorCount++;
+            return (0, false);
+        } catch (bytes memory /*lowLevelData*/) {
+            // This is executed in case revert() was used.
+            errorCount++;
+            return (0, false);
+        }
+    }
+}
+```
+
+-   You can choose to handle or re-revert. This can be used to do partial rollbacks or alternate logic.
+
+## Best Practices for Error Handling
+
+-   **Use require for Input Validation**
+    -   Validate function arguments, check `msg.value`, verify permissions, etc.
+-   **Keep Revert Messages Short**
+    -   Revert strings add to the bytecode size and runtime cost.
+    -   If you need to pass detailed data, consider custom errors.
+-   **Use custom errors for More Complex Logic**
+    -   Save gas and convey structured data (like addresses, amounts) in the revert reason.
+-   **Fail Fast**
+    -   Place `require` checks at the top of your functions to prevent unnecessary computations.
 
 # References
 
