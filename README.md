@@ -60,6 +60,21 @@ _This cheatsheet is based on version 0.8.29_
     - [Benefits:](#benefits)
   - [`try/catch` for External Calls](#trycatch-for-external-calls)
   - [Best Practices for Error Handling](#best-practices-for-error-handling)
+- [Arrays, Mappings, Structs, Enums](#arrays-mappings-structs-enums)
+  - [Arrays](#arrays)
+    - [Fixed-size Arrays](#fixed-size-arrays)
+    - [Dynamic Arrays](#dynamic-arrays)
+    - [Declaring and Using Arrays](#declaring-and-using-arrays)
+      - [Storage vs. Memory](#storage-vs-memory)
+      - [Accessing Elements](#accessing-elements)
+      - [Length](#length)
+      - [Push and Pop (Dynamic Arrays in Storage)](#push-and-pop-dynamic-arrays-in-storage)
+      - [Gas Considerations:](#gas-considerations-1)
+  - [Mappings](#mappings)
+  - [Structs](#structs)
+  - [Enums](#enums)
+    - [Enum Advantages:](#enum-advantages)
+  - [Best Practices and Tips](#best-practices-and-tips)
 - [References](#references)
 
 # Getting Started
@@ -832,9 +847,204 @@ contract FeedConsumer {
 -   **Fail Fast**
     -   Place `require` checks at the top of your functions to prevent unnecessary computations.
 
+# Arrays, Mappings, Structs, Enums
+
+-   Arrays: Sequential lists of elements of the same type.
+-   Mappings: Key-value data structure that does not store keys (only values).
+-   Structs: Custom types that group different data fields together.
+-   Enums: Defines a finite set of possible states.
+
+## Arrays
+
+### Fixed-size Arrays
+
+-   Their size must be known at compile time.
+-   You cannot change their length afterward.
+
+```solidity
+uint256[3] public fixedArray = [1, 2, 3];
+```
+
+### Dynamic Arrays
+
+-   Size can be modified at runtime using built-in methods like push and pop.
+-   Declared with empty brackets: `uint256[]`.
+
+```solidity
+uint256[] public dynamicArray;
+```
+
+### Declaring and Using Arrays
+
+#### Storage vs. Memory
+
+-   State arrays (declared at the contract level) live in **storage** (on-chain).
+-   Function parameters and local arrays can be declared in **memory** or **calldata** (for external functions).
+-   `calldata` is read-only and more gas-efficient for external function parameters.
+
+#### Accessing Elements
+
+```solidity
+uint256[] public numbers;
+
+function addNumber(uint256 num) external {
+    numbers.push(num); // dynamic array
+}
+
+function getNumber(uint256 index) external view returns (uint256) {
+    return numbers[index];
+}
+```
+
+#### Length
+
+-   For a dynamic array, `arrayName.length` gives the current length.
+-   You can also set a new length (in storage arrays) by assigning: `numbers.length = newLength;` (this can truncate or extend the array).
+
+#### Push and Pop (Dynamic Arrays in Storage)
+
+-   `push(value)` appends a new element at the end.
+-   `pop()` removes the last element (reducing the array length by one).
+-   Time complexity of `push` and `pop` is O(1).
+
+```solidity
+function removeLast() external {
+    numbers.pop();
+}
+```
+
+#### Gas Considerations:
+
+-   Each push, pop, and indexing operation in storage arrays incurs gas costs.
+-   Minimizing on-chain array size or using more efficient data structures can be crucial for large data sets.
+
+## Mappings
+
+-   A mapping is a reference type that stores key-value pairs.
+-   Mappings in Solidity:
+    -   **Do not allow iteration** over keys.
+    -   **Do not store** or keep track of the keys themselves—only the values and their hashed keys.
+    -   Are often used for **fast lookups** (constant time access).
+
+```solidity
+mapping(address => uint256) public balances;
+
+function deposit() external payable {
+    balances[msg.sender] += msg.value;
+}
+```
+
+-   **KeyType**: Usually a built-in type like `address`, `uint256`, or `bytes32`. (Structs, mappings, or dynamically-sized arrays cannot be used as keys.)
+-   **ValueType**: Can be any type, including another mapping or a struct.
+
+```solidity
+// Nested mapping
+mapping(address => mapping(address => uint256)) public allowance;
+
+function approve(address spender, uint256 amount) external {
+    allowance[msg.sender][spender] = amount;
+}
+```
+
+## Structs
+
+-   **Structs** let you define custom data types that group multiple variables (of possibly different types).
+-   They help in making code more readable and organizing complex data.
+
+```solidity
+struct User {
+    string name;
+    uint256 age;
+    address wallet;
+}
+
+User[] public users; // dynamic array of User structs
+
+function createUser(string memory _name, uint256 _age) external {
+    // Option 1: Direct struct creation
+    User memory newUser = User(_name, _age, msg.sender);
+    users.push(newUser);
+
+    // Option 2: Struct with named fields
+    users.push(User({name: _name, age: _age, wallet: msg.sender}));
+}
+```
+
+## Enums
+
+-   Enums define a finite list of constant values, improving code clarity when dealing with limited states.
+-   Internally, enums map to uint8 by default (or the smallest fitting unsigned integer, though conceptually it can occupy a full storage slot). Each value corresponds to an index, starting at `0`.
+
+```solidity
+enum Status {
+    Pending,    // 0
+    Shipped,    // 1
+    Delivered,  // 2
+    Canceled    // 3
+}
+
+Status public currentStatus;
+
+function setStatusShipped() external {
+    currentStatus = Status.Shipped;
+}
+
+function cancelOrder() external {
+    currentStatus = Status.Canceled;
+}
+
+function getStatus() external view returns (Status) {
+    return currentStatus;
+}
+```
+
+-   **Converting Enums**:
+    -   You can cast an integer to an enum if it’s a valid index.
+    -   Example: `Status s = Status(1); // s == Status.Shipped`
+    -   Be careful with casting, as invalid casts can lead to out-of-range enum values, which can corrupt state.
+
+### Enum Advantages:
+
+-   Makes state transitions self-documenting.
+-   Avoids using magic numbers (`0, 1, 2, 3`) or strings for statuses.
+-   Typically used for order states, workflow stages, or roles with limited states.
+
+## Best Practices and Tips
+
+1. Use Arrays for Ordered Collections
+
+-   Great for sequential data like lists of user IDs.
+-   Remember that iterating over large arrays on-chain is costly.
+
+2. Use Mappings for Fast Lookups
+
+-   Ideal for key-value pairs like balances or allowances.
+-   You cannot iterate over a mapping, so maintain auxiliary data if you need a list of keys.
+
+3. Structs for Grouped Data
+
+-   Keep related data fields together.
+-   This improves readability and can reduce storage slot usage if packed correctly (e.g., storing small-size types in one slot).
+
+4. Guard Against Invalid Enum Values
+
+-   If you do type-casting from integers to enums, ensure you handle out-of-range values.
+-   In Solidity 0.8.x, you get a revert on overflow, but be explicit about checking valid indices if you do custom casting.
+
+5. Avoid Large Arrays in Storage
+
+-   If you expect an unbounded number of elements, consider a more efficient approach like indexing or partial off-chain storage.
+-   Or provide a mechanism to paginate through array elements or handle them in batches.
+
+6. Be Aware of Storage Collisions
+
+-   When dealing with nested data structures or inherited contracts, be sure you understand how Solidity’s storage layout works.
+-   Typically, using the standard approach (top-level declarations) avoids collisions.
+
 # References
 
 -   [Solidity Docs](https://docs.soliditylang.org/en/latest/)
 -   [Solidity by Example](https://solidity-by-example.org/)
 -   [Solidity Cheatsheet and Best practices](https://github.com/manojpramesh/solidity-cheatsheet/)
 -   [Solidity Gas Optimization Techniques: Loops](https://hackmd.io/@totomanov/gas-optimization-loops#Solidity-Gas-Optimization-Techniques-Loops)
+-   [Gas Optimization In Solidity: Strategies For Cost-Effective Smart Contracts](https://hacken.io/discover/solidity-gas-optimization/)
