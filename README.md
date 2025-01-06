@@ -1011,32 +1011,32 @@ function getStatus() external view returns (Status) {
 
 ## Best Practices and Tips
 
-1. Use Arrays for Ordered Collections
+1. **Use Arrays for Ordered Collections**
 
 -   Great for sequential data like lists of user IDs.
 -   Remember that iterating over large arrays on-chain is costly.
 
-2. Use Mappings for Fast Lookups
+2. **Use Mappings for Fast Lookups**
 
 -   Ideal for key-value pairs like balances or allowances.
 -   You cannot iterate over a mapping, so maintain auxiliary data if you need a list of keys.
 
-3. Structs for Grouped Data
+3. **Structs for Grouped Data**
 
 -   Keep related data fields together.
 -   This improves readability and can reduce storage slot usage if packed correctly (e.g., storing small-size types in one slot).
 
-4. Guard Against Invalid Enum Values
+4. **Guard Against Invalid Enum Values**
 
 -   If you do type-casting from integers to enums, ensure you handle out-of-range values.
 -   In Solidity 0.8.x, you get a revert on overflow, but be explicit about checking valid indices if you do custom casting.
 
-5. Avoid Large Arrays in Storage
+5. **Avoid Large Arrays in Storage**
 
 -   If you expect an unbounded number of elements, consider a more efficient approach like indexing or partial off-chain storage.
 -   Or provide a mechanism to paginate through array elements or handle them in batches.
 
-6. Be Aware of Storage Collisions
+6. **Be Aware of Storage Collisions**
 
 -   When dealing with nested data structures or inherited contracts, be sure you understand how Solidity’s storage layout works.
 -   Typically, using the standard approach (top-level declarations) avoids collisions.
