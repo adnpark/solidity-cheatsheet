@@ -75,6 +75,10 @@ _This cheatsheet is based on version 0.8.29_
   - [Enums](#enums)
     - [Enum Advantages:](#enum-advantages)
   - [Best Practices and Tips](#best-practices-and-tips)
+- [Modifiers](#modifiers)
+  - [Syntax](#syntax)
+  - [Anatomy of a Modifier](#anatomy-of-a-modifier)
+  - [Multiple Modifiers on One Function](#multiple-modifiers-on-one-function)
 - [References](#references)
 
 # Getting Started
@@ -1040,6 +1044,77 @@ function getStatus() external view returns (Status) {
 
 -   When dealing with nested data structures or inherited contracts, be sure you understand how Solidity’s storage layout works.
 -   Typically, using the standard approach (top-level declarations) avoids collisions.
+
+# Modifiers
+
+-   Modifiers are a powerful feature in Solidity that allow you to augment or condition the execution of functions.
+-   Think of them as wrappers around your functions that can run additional code (e.g., access checks, state validations) before (and/or after) the function body is executed.
+
+## Syntax
+
+```solidity
+modifier onlyOwner() {
+    require(msg.sender == owner, "Caller is not owner");
+    _;
+}
+
+function sensitiveAction() public onlyOwner {
+    // This code runs after the `onlyOwner` checks
+    // ...
+}
+```
+
+1. When `sensitiveAction()` is called, Solidity first executes the code in the `onlyOwner` modifier.
+2. If all checks (e.g., `require`) pass, it proceeds to execute the body of `sensitiveAction()`.
+3. If any check fails, it reverts and never calls the function body.
+
+## Anatomy of a Modifier
+
+-   A modifier can contain code before and after the special `_` (underscore):
+
+```solidity
+modifier checkValue(uint256 _value) {
+    // Code executed before the function body
+    require(_value > 0, "Value must be greater than zero");
+
+    _; // The function body is inserted here
+
+    // Code executed after the function body
+    emit ValueChecked(_value);
+}
+
+function doSomething(uint256 amount) public checkValue(amount) {
+    // function body
+}
+```
+
+the compiled code effectively looks like:
+
+```solidity
+function doSomething(uint256 amount) public {
+    require(amount > 0, "Value must be greater than zero");
+
+    // function body (original code of doSomething)
+
+    emit ValueChecked(amount);
+}
+```
+
+## Multiple Modifiers on One Function
+
+-   You can apply multiple modifiers to a single function. The modifiers will execute in order, left to right:
+
+```solidity
+modifier onlyOwner() { /* ... */ _; }
+modifier whenNotPaused() { /* ... */ _; }
+
+function specialAction() public onlyOwner whenNotPaused {
+    // function body
+}
+```
+
+-   Be mindful of the order, especially if the modifiers change state.
+-   Also ensure your modifiers don’t conflict or replicate the same checks unnecessarily.
 
 # References
 
