@@ -1543,8 +1543,8 @@ contract D is B, C {
 
 -   **Favor Composition over Deep Inheritance**
 
-        -   Avoid extremely deep inheritance chains—they can become confusing and error-prone.
-        -   Sometimes, libraries or composition patterns are clearer.
+    -   Avoid extremely deep inheritance chains—they can become confusing and error-prone.
+    -   Sometimes, libraries or composition patterns are clearer.
 
 -   **Mark Functions as `virtual` and `override`**
 
