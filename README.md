@@ -79,6 +79,15 @@ _This cheatsheet is based on version 0.8.29_
   - [Syntax](#syntax)
   - [Anatomy of a Modifier](#anatomy-of-a-modifier)
   - [Multiple Modifiers on One Function](#multiple-modifiers-on-one-function)
+- [Events](#events)
+  - [Key Characteristics](#key-characteristics)
+  - [Declaring Events](#declaring-events)
+  - [Emitting Events](#emitting-events)
+  - [Viewing Events Off-Chain](#viewing-events-off-chain)
+  - [Indexed vs. Non-Indexed Parameters](#indexed-vs-non-indexed-parameters)
+  - [Common Use Cases](#common-use-cases)
+  - [Simple Example](#simple-example)
+  - [Best Practices](#best-practices)
 - [References](#references)
 
 # Getting Started
@@ -1115,6 +1124,140 @@ function specialAction() public onlyOwner whenNotPaused {
 
 -   Be mindful of the order, especially if the modifiers change state.
 -   Also ensure your modifiers don’t conflict or replicate the same checks unnecessarily.
+
+# Events
+
+-   Events in Solidity are mechanisms that allow smart contracts to emit logs during execution.
+-   These logs are stored on the blockchain as part of the transaction receipt, but do not directly consume contract storage.
+-   Off-chain applications (like DApps, block explorers, etc.) can listen for these events to react or update their interfaces.
+
+## Key Characteristics
+
+-   **Logs vs. Storage**: Events produce logs that are cheaper than storing data in contract state, because they’re kept in the transaction receipt.
+-   **Indexed Parameters**: You can mark up to **3 parameters** as indexed, enabling more efficient filtering on the client side.
+-   **Not Accessible On-Chain**: Event data (logs) are **not** accessible to other contracts. You can’t read events from within Solidity; they’re purely for off-chain usage.
+
+## Declaring Events
+
+```solidity
+event Transfer(address indexed from, address indexed to, uint256 value);
+```
+
+-   Up to three parameters can be labeled as `indexed`.
+-   `indexed` parameters are **indexed** in the event log, which makes them searchable by off-chain tools.
+
+## Emitting Events
+
+```solidity
+function transfer(address _to, uint256 _amount) external {
+    // ... perform transfer logic ...
+    emit Transfer(msg.sender, _to, _amount);
+}
+```
+
+## Viewing Events Off-Chain
+
+-   Web3 Libraries (Viem, ethers.js) allow you to listen for these events or query past events by searching transaction logs.
+
+Example(in Viem):
+
+```typescript
+import { parseAbiItem } from "viem"
+import { publicClient } from "./client"
+
+publicClient.watchEvent({
+    address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+    event: parseAbiItem(
+        "event Transfer(address indexed from, address indexed to, uint256 value)"
+    ),
+    args: {
+        from: "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+        to: "0xa5cc3c03994db5b0d9a5eedd10cabab0813678ac"
+    },
+    onLogs: (logs) => console.log(logs)
+})
+```
+
+## Indexed vs. Non-Indexed Parameters
+
+-   Indexed parameters are **searchable** in the logs and stored as topics.
+-   Non-indexed parameters are stored in the log’s data section, which is not easily searchable but can be read once you retrieve the log.
+
+For example, in `event Transfer(address indexed from, address indexed to, uint256 value)`;:
+
+-   `from` => topic[1]
+-   `to` => topic[2]
+-   `value` => part of the data payload
+
+-   You can filter logs by indexed topics like `from = 0x1234...abcd`, but you cannot directly filter by `value` because it’s not indexed.
+
+```typescript
+const filter = await publicClient.createContractEventFilter({
+    abi: wagmiAbi,
+    address: "0xfba3912ca04dd458c843e2ee08967fc04f3579c2",
+    eventName: "Transfer",
+    args: {
+        from: "0xd8da6bf26964af9d7eed9e03e53415d37aa96045",
+        to: "0xa5cc3c03994db5b0d9a5eedd10cabab0813678ac"
+    }
+})
+```
+
+## Common Use Cases
+
+1. Token Transfers
+    - ERC20 tokens emit a `Transfer` event whenever tokens move from one address to another.
+2. State Changes
+    - Logging changes of ownership, updates to config variables, or changes in contract status.
+3. Debugging
+    - Emitting certain events during testing can help you trace contract execution.
+4. Off-Chain Processing
+    - Subgraphs (e.g., The Graph) or other indexing services use events to build databases of contract activity, enabling complex queries and analytics.
+
+## Simple Example
+
+```solidity
+pragma solidity ^0.8.21;
+
+contract Payment {
+    event Deposit(address indexed sender, uint256 amount);
+    event Withdraw(address indexed recipient, uint256 amount);
+
+    function deposit() external payable {
+        require(msg.value > 0, "No ether sent");
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    function withdraw(uint256 amount) external {
+        require(amount > 0, "Zero withdrawal");
+        require(address(this).balance >= amount, "Insufficient contract balance");
+
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, "Withdraw failed");
+
+        emit Withdraw(msg.sender, amount);
+    }
+}
+```
+
+## Best Practices
+
+-   Emit Events for Important State Changes
+
+Especially for actions that off-chain services or UIs need to track: token transfers, ownership changes, auctions ending, etc.
+
+-   Index Only What’s Needed
+
+    -   Up to three indexed parameters can be used. Indexing more variables doesn’t exist (the rest must be unindexed).
+    -   Too many indexed parameters or large data can increase log size and gas cost.
+
+-   Avoid Emitting Too Many Events in a Single Transaction
+
+    -   Each event adds to the gas cost. If you’re in a loop, consider alternative approaches or batch events if possible.
+
+-   Be Aware of Event Ordering
+
+    -   The order in which you emit events is the order they appear in the logs. Off-chain listeners often rely on log order to interpret data.
 
 # References
 
