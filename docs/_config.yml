@@ -1,0 +1,18 @@
+theme: jekyll-theme-cayman
+
+title: "Solidity Master Cheatsheet"
+description: "A comprehensive cheatsheet for Solidity developers."
+author: "Aiden Park"
+
+plugins:
+    - jekyll-seo-tag
+    - jekyll-sitemap
+
+seo:
+    twitter:
+        site: "@adn_park"
+    open_graph:
+        type: "website"
+        locale: "en_US"
+        url: "https://adnpark.github.io/solidity-cheatsheet/"
+        site_name: "Solidity Master Cheatsheet"
