@@ -1,12 +1,12 @@
-# Solidity Cheatsheet
+# Solidity Master Cheatsheet
 
-Welcome to the Solidity Cheat Sheet—created especially for new Solidity developers! Whether you’re just starting to explore the fundamentals of smart contract programming or need a convenient reference while building your DApps, this guide has you covered.
+Welcome to the Solidity Master Cheatsheet—created especially for new Solidity developers! Whether you’re just starting to explore the fundamentals of smart contract programming or need a convenient reference while building your DApps, this guide has you covered.
 
 _This cheatsheet is based on version 0.8.29_
 
 # Table of Contents
 
-- [Solidity Cheatsheet](#solidity-cheatsheet)
+- [Solidity Master Cheatsheet](#solidity-master-cheatsheet)
 - [Table of Contents](#table-of-contents)
 - [Getting Started](#getting-started)
 - [Specifying compiler version](#specifying-compiler-version)
@@ -89,6 +89,18 @@ _This cheatsheet is based on version 0.8.29_
   - [Simple Example](#simple-example)
   - [Best Practices](#best-practices)
 - [Contract Inheritance \& Interfaces](#contract-inheritance--interfaces)
+  - [Contract Inheritance](#contract-inheritance)
+    - [Single Inheritance](#single-inheritance)
+    - [Multiple Inheritance](#multiple-inheritance)
+    - [Overriding Functions](#overriding-functions)
+    - [Constructors in Inheritance](#constructors-in-inheritance)
+  - [Interfaces](#interfaces)
+    - [Implementing an Interface](#implementing-an-interface)
+    - [Using Interfaces](#using-interfaces)
+    - [Combining Inheritance and Interfaces](#combining-inheritance-and-interfaces)
+    - [Abstract Contracts](#abstract-contracts)
+    - [Diamond Inheritance and the “Linearization of Base Contracts”](#diamond-inheritance-and-the-linearization-of-base-contracts)
+  - [Best Practices](#best-practices-1)
 - [References](#references)
 
 # Getting Started
@@ -1261,6 +1273,298 @@ contract Payment {
     -   The order in which you emit events is the order they appear in the logs. Off-chain listeners often rely on log order to interpret data.
 
 # Contract Inheritance & Interfaces
+
+-   Solidity supports an **object-oriented programming** model where **contracts** can **inherit** from one or more base contracts.
+-   This allows for code reuse and hierarchical organization of functionality.
+-   **Interfaces** in Solidity define the required function signatures (and optionally events) without providing an implementation, allowing for standardized interaction between different contracts.
+
+## Contract Inheritance
+
+Inheritance is achieved using the `is` keyword. A derived (child) contract can access and override the functions and state variables of its parent (base) contract(s).
+
+### Single Inheritance
+
+```solidity
+contract Parent {
+    string public parentName = "Parent";
+
+    function greet() public pure returns (string memory) {
+        return "Hello from Parent";
+    }
+}
+
+contract Child is Parent {
+    function sayHello() public view returns (string memory) {
+        // Access parent's state variable
+        return parentName;
+    }
+}
+```
+
+-   `Child` inherits everything from `Parent` except **constructor**, **private** state variables/functions, and **internal** data can only be accessed within `Child`.
+
+### Multiple Inheritance
+
+A contract can inherit from multiple base contracts using comma separation:
+
+```solidity
+contract A {
+    function foo() public pure returns (string memory) {
+        return "A";
+    }
+}
+
+contract B {
+    function bar() public pure returns (string memory) {
+        return "B";
+    }
+}
+
+// Child inherits both A and B
+contract C is A, B {
+    // C now has both foo() from A and bar() from B
+}
+```
+
+### Overriding Functions
+
+-   Parent functions must be marked `virtual` to allow them to be overridden.
+-   Child overrides must use `override`.
+
+```solidity
+contract Parent {
+    function greet() public pure virtual returns (string memory) {
+        return "Hello from Parent";
+    }
+}
+
+contract Child is Parent {
+    // Overriding greet()
+    function greet() public pure override returns (string memory) {
+        return "Hello from Child";
+    }
+}
+```
+
+-   If you have multiple levels (e.g., `Grandparent -> Parent -> Child`), and `Child` wants to override a function from `Grandparent`, you typically chain `override(Base, Grandparent)` if needed.
+
+```solidity
+contract Child is Parent, Grandparent {
+    function greet() public pure override(Parent, Grandparent) returns (string memory) {
+        return "Hello from Child";
+    }
+}
+```
+
+### Constructors in Inheritance
+
+-   If a parent contract has a **constructor**, the child must **explicitly** call it (unless it has a parameterless constructor).
+-   If multiple parents have constructors, each must be called with the needed arguments in the child’s constructor.
+
+```solidity
+contract Parent1 {
+    uint256 public x;
+
+    constructor(uint256 _x) {
+        x = _x;
+    }
+}
+
+contract Parent2 {
+    uint256 public y;
+
+    constructor(uint256 _y) {
+        y = _y;
+    }
+}
+
+contract Child is Parent1, Parent2 {
+    // Must call Parent1,2 constructor
+    constructor(uint256 _childValue) Parent1(_childValue) Parent2(_childValue) {
+        // additional child init
+    }
+}
+```
+
+## Interfaces
+
+An **interface** in Solidity is like a contract but with these restrictions:
+
+1. **No** state variables or constructor definitions.
+2. **All functions must be `external`** (or public in older versions of Solidity, but typically we use `external`).
+3. **No** function implementations—**only signatures**.
+4. Usually includes events that implementing contracts should emit.
+
+Purpose: They define a **standard** for other contracts to implement, ensuring compatibility without forcing an implementation approach.
+
+```solidity
+interface ICounter {
+    function increment() external;
+    function getCount() external view returns (uint256);
+    event Counted(address indexed caller, uint256 newCount);
+}
+```
+
+### Implementing an Interface
+
+-   A contract **implements** an interface by providing **all** the functions declared in the interface and matching their signatures exactly.
+
+```solidity
+contract Counter is ICounter {
+    uint256 private count;
+
+    function increment() external override {
+        count++;
+        emit Counted(msg.sender, count);
+    }
+
+    function getCount() external view override returns (uint256) {
+        return count;
+    }
+}
+```
+
+### Using Interfaces
+
+Contracts can call interface functions to interact with external contracts that implement them:
+
+```solidity
+contract Caller {
+    function doIncrement(ICounter _counter) external {
+        _counter.increment();
+    }
+
+    function readCount(ICounter _counter) external view returns (uint256) {
+        return _counter.getCount();
+    }
+}
+```
+
+### Combining Inheritance and Interfaces
+
+You can mix inheritance and interfaces. For example, you could have a base abstract contract that implements some parts of an interface and leaves others for child contracts.
+
+```solidity
+interface IVault {
+    function deposit(uint256 amount) external;
+    function withdraw(uint256 amount) external;
+}
+
+abstract contract VaultBase is IVault {
+    // partially implement deposit logic
+    // but keep withdraw abstract or add some logic
+
+    function deposit(uint256 amount) external virtual override {
+        // partial logic
+    }
+}
+
+contract MyVault is VaultBase {
+    // Must override deposit if not fully implemented
+    // Must implement withdraw
+    function deposit(uint256 amount) external override {
+        // full deposit logic
+    }
+
+    function withdraw(uint256 amount) external override {
+        // implement withdraw logic
+    }
+}
+```
+
+-   `VaultBase` is an abstract contract because it might not fully implement all methods of `IVault`.
+-   `MyVault` completes the implementation.
+
+### Abstract Contracts
+
+**Abstract contracts** are those that cannot be deployed directly because they have at least one function without an implementation (`virtual` function). They serve as base contracts.
+
+-   Typically contain shared logic and placeholders for functions to be defined in child contracts.
+-   Marked with `abstract` keyword in Solidity 0.6.x+.
+
+```solidity
+abstract contract Animal {
+    function speak() public virtual returns (string memory);
+}
+
+contract Dog is Animal {
+    function speak() public pure override returns (string memory) {
+        return "Woof!";
+    }
+}
+```
+
+-   `Animal` is abstract because `speak()` has no implementation.
+-   `Dog` provides an implementation for `speak()`.
+
+### Diamond Inheritance and the “Linearization of Base Contracts”
+
+-   Solidity uses the **C3 linearization** algorithm to resolve conflicts in multiple inheritance.
+-   If multiple parent contracts have the **same function** name, you must explicitly **override** and specify which base contract’s implementation to use.
+
+```solidity
+contract A {
+    function foo() public pure virtual returns (string memory) {
+        return "A";
+    }
+}
+
+contract B is A {
+    function foo() public pure virtual override returns (string memory) {
+        return "B";
+    }
+}
+
+contract C is A {
+    function foo() public pure virtual override returns (string memory) {
+        return "C";
+    }
+}
+
+// D inherits from both B and C
+contract D is B, C {
+    // Must override foo() again
+    function foo() public pure override(B, C) returns (string memory) {
+        // decide which parent's implementation to call, or write new logic
+        // it will return "C"
+        return super.foo(); // picks the rightmost parent's override by default (C) in linearization
+    }
+}
+```
+
+-   The `override(B, C)` explicitly states you are overriding `foo()` from both `B` and `C`.
+-   `super.foo()` calls the next-most derived override in the linearization.
+
+## Best Practices
+
+-   **Use Inheritance for Shared Logic**
+
+    -   Common functionality (e.g., access control, utility functions) can be placed in base contracts for easy reuse.
+
+-   **Favor Composition over Deep Inheritance**
+
+        -   Avoid extremely deep inheritance chains—they can become confusing and error-prone.
+        -   Sometimes, libraries or composition patterns are clearer.
+
+-   **Mark Functions as `virtual` and `override`**
+
+    -   Always use `virtual` in the base contract to signal it can be overridden.
+    -   Always use `override` in child contracts to signal you’re overriding a parent function.
+
+-   **Use Interfaces for Inter-Contract Communication**
+
+    -   Define an interface that external contracts must implement.
+    -   This reduces dependencies, as your contract does not rely on the internal details of the other contract.
+
+-   **Separate Interfaces into Their Own Files**
+
+    -   This aids clarity and reusability.
+    -   Keep your interface definitions minimal—only the required function signatures and events.
+
+-   **Avoid Conflicting State in Multiple Inheritance**
+
+    -   Overlapping storage layouts from multiple parents can cause confusion or even storage collisions.
+    -   Ensure each parent contract uses distinct state variable slots (this usually happens naturally if you’re just inheriting standard contracts without complicated overrides).
 
 # References
 
