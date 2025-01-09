@@ -88,6 +88,7 @@ _This cheatsheet is based on version 0.8.29_
   - [Common Use Cases](#common-use-cases)
   - [Simple Example](#simple-example)
   - [Best Practices](#best-practices)
+- [Contract Inheritance \& Interfaces](#contract-inheritance--interfaces)
 - [References](#references)
 
 # Getting Started
@@ -1244,7 +1245,7 @@ contract Payment {
 
 -   Emit Events for Important State Changes
 
-Especially for actions that off-chain services or UIs need to track: token transfers, ownership changes, auctions ending, etc.
+    -   Especially for actions that off-chain services or UIs need to track: token transfers, ownership changes, auctions ending, etc.
 
 -   Index Only What’s Needed
 
@@ -1258,6 +1259,8 @@ Especially for actions that off-chain services or UIs need to track: token trans
 -   Be Aware of Event Ordering
 
     -   The order in which you emit events is the order they appear in the logs. Off-chain listeners often rely on log order to interpret data.
+
+# Contract Inheritance & Interfaces
 
 # References
 
