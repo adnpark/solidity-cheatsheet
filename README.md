@@ -101,6 +101,13 @@ _This cheatsheet is based on version 0.8.29_
     - [Abstract Contracts](#abstract-contracts)
     - [Diamond Inheritance and the “Linearization of Base Contracts”](#diamond-inheritance-and-the-linearization-of-base-contracts)
   - [Best Practices](#best-practices-1)
+- [Libraries](#libraries)
+  - [Key Characteristics of Libraries](#key-characteristics-of-libraries)
+  - [Library Function Types](#library-function-types)
+    - [Example: Internal Library](#example-internal-library)
+    - [Example: External Library](#example-external-library)
+  - [Library for Struct Extensions](#library-for-struct-extensions)
+  - [Best Practices](#best-practices-2)
 - [References](#references)
 
 # Getting Started
@@ -1565,6 +1572,182 @@ contract D is B, C {
 
     -   Overlapping storage layouts from multiple parents can cause confusion or even storage collisions.
     -   Ensure each parent contract uses distinct state variable slots (this usually happens naturally if you’re just inheriting standard contracts without complicated overrides).
+
+# Libraries
+
+-   In Solidity, **libraries** are special types of contracts intended to provide reusable code.
+-   They can be thought of as utility or helper modules that other contracts can call without needing to implement the same logic repeatedly.
+-   Libraries help keep code DRY (Don’t Repeat Yourself), save gas, and improve readability.
+
+## Key Characteristics of Libraries
+
+-   **No Ether**
+
+    -   Libraries **cannot** hold Ether (i.e., they cannot have a balance).
+    -   Any attempt to send Ether to a library will fail.
+
+-   **No State Variables**
+
+    -   Libraries cannot store or modify their own state; they are stateless.
+
+-   **No Inheritance**
+
+    -   Libraries cannot be inherited or extend other contracts (nor can you inherit from a library).
+
+-   **Linked at Compile Time or Deployment Time**
+    -   **Internal library functions** are typically inlined or statically called.
+    -   **External library functions** can be deployed and then “linked” to your contract.
+
+## Library Function Types
+
+Solidity libraries support **two** ways of using their functions:
+
+-   **Internal Functions**
+
+    -   If a library function is declared `internal`, it is inlined into the calling contract’s bytecode at compile time (similar to macros).
+    -   This reduces overhead since no external call is made.
+
+-   **External Functions**
+
+    -   If a library function is declared `public` or `external`, the calling contract will **delegatecall** into the library at runtime.
+    -   This can save bytecode size in the calling contract but introduces a small overhead for each external call.
+    -   You must **deploy** the library contract first and link it before deploying the final contract.
+
+### Example: Internal Library
+
+Most libraries are used as **internal** because it’s more gas-efficient (no external call) and simpler to manage.
+
+```solidity
+// MathLib.sol
+pragma solidity ^0.8.29;
+
+library MathLib {
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a + b;
+    }
+
+    function multiply(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a * b;
+    }
+}
+
+// TestMath.sol
+pragma solidity ^0.8.21;
+
+import "./MathLib.sol";
+
+contract TestMath {
+    function testAdd(uint256 x, uint256 y) public pure returns (uint256) {
+        return MathLib.add(x, y);
+    }
+
+    function testMultiply(uint256 x, uint256 y) public pure returns (uint256) {
+        return MathLib.multiply(x, y);
+    }
+}
+```
+
+-   `MathLib.add` and `MathLib.multiply` are called from `TestMath` without an external call because they’re `internal` functions in a library.
+-   The compiler will inline or statically link these calls, increasing `TestMath`’s bytecode size, but saving on runtime gas costs.
+
+### Example: External Library
+
+You can define a library with public or external functions. In that case, your contract calls the library via delegatecall at runtime.
+
+```solidity
+// ExternalLib.sol
+pragma solidity ^0.8.29;
+
+library ExternalLib {
+    function externalAdd(uint256 a, uint256 b) external pure returns (uint256) {
+        return a + b;
+    }
+}
+```
+
+To use this library in another contract:
+
+```solidity
+pragma solidity ^0.8.29;
+
+import "./ExternalLib.sol";
+
+contract UseExternalLib {
+    // The compiler inserts a reference that must be linked to the ExternalLib deployed address
+    function compute(uint256 x, uint256 y) public pure returns (uint256) {
+        return ExternalLib.externalAdd(x, y);
+    }
+}
+```
+
+-   **Deployment**: You must first deploy `ExternalLib` and then link its address into `UseExternalLib`’s bytecode.
+-   At runtime, calls to `ExternalLib.externalAdd` happen via DELEGATECALL.
+
+## Library for Struct Extensions
+
+-   A popular pattern is to write libraries that extend built-in types or custom structs with `using for`.
+-   This adds **library functions** as if they were member functions of the type.
+
+```solidity
+pragma solidity ^0.8.29;
+
+library ArrayUtils {
+    function findIndex(uint256[] storage arr, uint256 value) internal view returns (int256) {
+        for (uint256 i = 0; i < arr.length; i++) {
+            if (arr[i] == value) {
+                return int256(i);
+            }
+        }
+        return -1; // Not found
+    }
+}
+
+contract MyArray {
+    using ArrayUtils for uint256[];  // "using for" directive
+
+    uint256[] private data;
+
+    function addValue(uint256 value) external {
+        data.push(value);
+    }
+
+    function findValue(uint256 value) external view returns (int256) {
+        // We can now call findIndex() as if it's a member of data
+        return data.findIndex(value);
+    }
+}
+```
+
+-   The `using ArrayUtils for uint256[];` directive allows you to call `data.findIndex(value)` directly.
+-   This improves readability and encapsulates utility logic for arrays.
+
+## Best Practices
+
+-   **Keep Libraries Focused**
+
+    -   A library should do **one thing** well—e.g., math operations, array helpers, address utilities, etc.
+
+-   **Avoid Large External Libraries for Single Contracts**
+
+    -   If you’re only using a library for a single contract and that library has few functions, it might be simpler and cheaper to make them internal.
+
+-   **Mark Functions `pure` or `view` Where Possible**
+
+    -   Avoid unintentional state modifications in libraries unless that’s the library’s explicit purpose.
+    -   This also ensures your library is safer and can be reasoned about more easily.
+
+-   **`using for` Pattern**
+
+    -   Great for readability and a more object-oriented feel.
+    -   Clarifies which types are extended by the library.
+
+-   **Security**
+
+    -   Libraries can mutate the caller’s storage if called with `delegatecall`. Ensure your library code is trusted and thoroughly reviewed.
+
+-   **Solady, OpenZeppelin and Other Standard Libraries**
+
+    -   Before writing your own, check if established libraries (e.g., Solady, OpenZeppelin) cover your needs. This reduces risk and leverages well-audited code.
 
 # References
 
