@@ -108,6 +108,11 @@ _This cheatsheet is based on version 0.8.29_
     - [Example: External Library](#example-external-library)
   - [Library for Struct Extensions](#library-for-struct-extensions)
   - [Best Practices](#best-practices-2)
+- [Payable, Fallback, and Receive](#payable-fallback-and-receive)
+  - [`payable` Keyword](#payable-keyword)
+  - [`receive()` Function](#receive-function)
+  - [`fallback()` Function](#fallback-function)
+  - [Best Practices](#best-practices-3)
 - [References](#references)
 
 # Getting Started
@@ -1748,6 +1753,97 @@ contract MyArray {
 -   **Solady, OpenZeppelin and Other Standard Libraries**
 
     -   Before writing your own, check if established libraries (e.g., Solady, OpenZeppelin) cover your needs. This reduces risk and leverages well-audited code.
+
+# Payable, Fallback, and Receive
+
+-   Smart contracts in Solidity can receive Ether if they have specific functions set up.
+-   Before Solidity `0.6.x`, there was only a single fallback function.
+-   From `0.6.x` onward, Solidity introduced a split: a dedicated `receive()` function to handle plain Ether transfers, and a `fallback()` function to handle non-matching function calls (and optionally Ether if `receive()` is not found).
+
+## `payable` Keyword
+
+1. `payable` is required for functions to receive Ether.
+2. It can apply to constructors and functions.
+3. If a function or constructor is not marked `payable`, it will reject any incoming Ether with a revert.
+
+```solidity
+pragma solidity ^0.8.21;
+
+contract PayableExample {
+    // A payable constructor allows you to deploy the contract with initial Ether
+    constructor() payable {
+        // Contract can receive Ether on deployment
+    }
+
+    // A payable function can receive Ether
+    function deposit() external payable {
+        // Funds are added to contract balance
+    }
+
+    // This function is NOT payable, so it cannot receive Ether
+    function nonPayableFunction() external {
+        // ...
+    }
+}
+```
+
+-   Attempting to send Ether (e.g., via `msg.value`) to `nonPayableFunction()` will revert.
+-   Conversely, calling `deposit()` without sending Ether is valid (but `msg.value` would be `0`).
+
+## `receive()` Function
+
+-   **Introduced** in Solidity `0.6.x` as a **special** function to receive plain Ether with no data (i.e., calls with an empty calldata).
+-   It can be declared `external payable` with **no** arguments and **no** return value.
+
+```solidity
+receive() external payable {
+    // custom logic or leave it empty
+}
+```
+
+-   If someone sends Ether to your contract without calling a specific function (like a simple `transfer()` or `send()` from an external account), the `receive()` function is triggered if it is defined.
+-   If you want your contract to accept plain Ether transfers, define a `receive()` function (or a fallback that is payable).
+
+**Behavior:**
+
+-   If a contract **does not** define `receive() external payable` but does define a `fallback() external payable`, then sending Ether with no data triggers the `fallback()` function.
+-   If neither function is payable, the contract cannot receive Ether outside of a payable function call and will revert.
+
+## `fallback()` Function
+
+-   The `fallback()` function is a special function in Solidity, called when:
+    -   A function that doesn’t exist in the contract is called.
+    -   No function signature matches the calldata.
+    -   If the call has data but there is no matching function.
+
+```solidity
+fallback() external [payable] {
+    // custom logic
+}
+```
+
+-   `fallback()` is **not** required to be `payable` by default. If you want it to receive Ether when no function matches, mark it `payable`. Otherwise, calls sending Ether will revert.
+
+**Use Cases:**
+
+-   **Proxy/Forwarding**: This is common in proxy contracts where all unknown calls are forwarded to another contract.
+-   **Emergency catch-all**: If a user or contract calls a function that does not exist, you can handle or revert gracefully.
+-   **Receiving Ether + Data**: If you need to handle Ether transfers that include data, you can do so in `fallback()` if `receive()` is not suitable or is absent.
+
+## Best Practices
+
+-   **Decide if you want to accept Ether**:
+    -   If yes, define a `receive()` function (or a `payable fallback()`).
+    -   If no, either omit them or revert in `fallback()`.
+-   **Keep Fallback/Receive Minimal**:
+    -   They can be triggered frequently, and often with limited gas (2,300).
+    -   Complex logic can lead to out-of-gas errors.
+    -   For reentrancy safety, minimize state changes or use reentrancy guards.
+-   **Test for Edge Cases**:
+    -   Test calls with valid function signatures, invalid ones, random data, zero-length data, and with Ether attached.
+    -   Make sure you get the intended behavior (especially for proxies or other fallback patterns).
+-   **Event Logging**:
+    -   If your contract receives Ether, consider emitting an event to easily track inbound transfers.
 
 # References
 
