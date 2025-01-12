@@ -72,11 +72,16 @@ _This cheatsheet is based on version 0.8.29_
       - [Gas Considerations:](#gas-considerations-1)
   - [Mappings](#mappings)
   - [Structs](#structs)
+  - [User Defined Value Types](#user-defined-value-types)
+    - [Motivation](#motivation)
+    - [Syntax](#syntax)
+    - [Wrapping and Unwrapping](#wrapping-and-unwrapping)
+    - [Operations and Conversions](#operations-and-conversions)
   - [Enums](#enums)
     - [Enum Advantages:](#enum-advantages)
   - [Best Practices and Tips](#best-practices-and-tips)
 - [Modifiers](#modifiers)
-  - [Syntax](#syntax)
+  - [Syntax](#syntax-1)
   - [Anatomy of a Modifier](#anatomy-of-a-modifier)
   - [Multiple Modifiers on One Function](#multiple-modifiers-on-one-function)
 - [Events](#events)
@@ -113,6 +118,10 @@ _This cheatsheet is based on version 0.8.29_
   - [`receive()` Function](#receive-function)
   - [`fallback()` Function](#fallback-function)
   - [Best Practices](#best-practices-3)
+- [Data Locations](#data-locations)
+- [Transient Storage](#transient-storage)
+- [Send Ether](#send-ether)
+- [Call \& Delegatecall](#call--delegatecall)
 - [References](#references)
 
 # Getting Started
@@ -1008,6 +1017,89 @@ function createUser(string memory _name, uint256 _age) external {
 }
 ```
 
+## User Defined Value Types
+
+-   User-Defined Value Types allow you to create a custom type name that wraps an existing built-in value type (like `uint256`, `int128`, `bytes32`, etc.).
+-   This feature was introduced in Solidity 0.8.8 and provides a way to give **semantic meaning** to a primitive type, helping catch logic errors and improving code readability.
+
+### Motivation
+
+-   **Type Safety & Readability**: By assigning a descriptive name to a built-in type, you can differentiate between, say, a `UserId` and a `Balance`, even if they’re both `uint256` under the hood.
+-   **Compile-Time Checks**: Conversions between different user-defined value types (and between the user-defined type and its underlying type) require **explicit** wrapping/unwrapping. This helps avoid mixing up incompatible values in your code.
+
+### Syntax
+
+```solidity
+type TypeName is UnderlyingType;
+```
+
+-   `TypeName`: The name of your new type (PascalCase by convention).
+-   `UnderlyingType`: Any built-in value type (e.g., `uint256`, `int128`, `bool`, `bytes32`, etc.).
+
+```solidity
+type UserId is uint256;
+type Price is uint128;
+type Flag is bool;
+```
+
+### Wrapping and Unwrapping
+
+-   Wrapping: Converting an underlying type to a user-defined type.
+-   Unwrapping: Converting a user-defined type back to its underlying type.
+
+```solidity
+uint256 rawId = 123;
+// Wrap a uint256 into a UserId
+UserId userId = UserId.wrap(rawId);
+
+// Unwrap a UserId to a uint256
+uint256 unwrappedId = UserId.unwrap(userId);
+
+// ❌ This will fail: Type uint256 is not implicitly convertible to UserId
+UserId invalidConversion = 123;
+```
+
+### Operations and Conversions
+
+By default, **no** arithmetic or comparison operations are defined for user-defined value types. If you need to perform operations on your custom type, you can:
+
+1. **Unwrap** your custom type, perform the operations on the underlying type, then **re-wrap** the result.
+2. Define **inline** or **library** functions that handle the logic for your custom type.
+
+```solidity
+pragma solidity ^0.8.29;
+
+type Distance is uint256;
+
+library DistanceLib {
+    function add(Distance a, Distance b) internal pure returns (Distance) {
+        // unwrap, add, then re-wrap
+        return Distance.wrap(Distance.unwrap(a) + Distance.unwrap(b));
+    }
+
+    function greaterThan(Distance a, Distance b) internal pure returns (bool) {
+        return Distance.unwrap(a) > Distance.unwrap(b);
+    }
+}
+
+contract Road {
+    using DistanceLib for Distance;
+
+    // store total length of roads
+    Distance public totalDistance;
+
+    function addDistance(Distance d) external {
+        totalDistance = totalDistance.add(d);
+        // internally uses DistanceLib.add
+    }
+
+    function compareDistances(Distance a, Distance b) external pure returns (bool) {
+        return a.greaterThan(b);
+    }
+}
+
+```
+
 ## Enums
 
 -   Enums define a finite list of constant values, improving code clarity when dealing with limited states.
@@ -1844,6 +1936,14 @@ fallback() external [payable] {
     -   Make sure you get the intended behavior (especially for proxies or other fallback patterns).
 -   **Event Logging**:
     -   If your contract receives Ether, consider emitting an event to easily track inbound transfers.
+
+# Data Locations
+
+# Transient Storage
+
+# Send Ether
+
+# Call & Delegatecall
 
 # References
 
