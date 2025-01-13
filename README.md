@@ -118,10 +118,19 @@ _This cheatsheet is based on version 0.8.29_
   - [`receive()` Function](#receive-function)
   - [`fallback()` Function](#fallback-function)
   - [Best Practices](#best-practices-3)
-- [Data Locations](#data-locations)
+- [Data Locations: `storage`, `memory`, `calldata`](#data-locations-storage-memory-calldata)
+  - [`storage`: Persistent, On-Chain Data](#storage-persistent-on-chain-data)
+  - [`memory`: Temporary, In-Function Workspace](#memory-temporary-in-function-workspace)
+  - [`calldata`: Read-Only External Input](#calldata-read-only-external-input)
+  - [Best Practices](#best-practices-4)
 - [Transient Storage](#transient-storage)
 - [Send Ether](#send-ether)
+- [Function Selector](#function-selector)
 - [Call \& Delegatecall](#call--delegatecall)
+- [Create, Create2, Create3, and CreateX](#create-create2-create3-and-createx)
+- [ABI Encode \& Decode](#abi-encode--decode)
+- [Bitwise Operations](#bitwise-operations)
+- [Assembly](#assembly)
 - [References](#references)
 
 # Getting Started
@@ -1937,13 +1946,101 @@ fallback() external [payable] {
 -   **Event Logging**:
     -   If your contract receives Ether, consider emitting an event to easily track inbound transfers.
 
-# Data Locations
+# Data Locations: `storage`, `memory`, `calldata`
+
+-   In Solidity, **complex data types**—like arrays, structs, and mappings—require specifying a **data location**.
+-   This tells the compiler where the data physically resides. The three main data locations are:
+
+1. `storage`: Persistent on-chain storage (the contract’s state).
+2. `memory`: Temporary, in-memory area used within function execution. Not persisted on-chain.
+3. `calldata`: Read-only area for function arguments in external functions. It directly references call data without copying it into memory.
+
+## `storage`: Persistent, On-Chain Data
+
+-   **Location**: The contract’s long-term memory on the Ethereum blockchain.
+-   **Persistence**: Any changes to data in storage are permanent and cost **significant gas**.
+-   **State Variables**: By default, state variables declared at the contract level (e.g., `uint256 public count;`) reside in `storage`.
+
+```solidity
+contract MyContract {
+    // This array is in storage (part of contract state).
+    uint256[] public numbers;
+
+    function storeValue(uint256 value) external {
+        numbers.push(value); // Modifying storage costs gas
+    }
+}
+```
+
+**Key Points:**
+
+-   **Expensive to Modify**: Writing to `storage` is the costliest operation because you’re permanently updating the blockchain state.
+-   **Reference Types in Storage**: Arrays, structs, and mappings can be stored in `storage`. Modifying their contents is also costly.
+-   **Assignments in Storage**: When you do `storageRef = someStateVar;`, you create a reference pointing to the same data. Changes to one reflect in the other.
+
+## `memory`: Temporary, In-Function Workspace
+
+-   **Location**: A transient area used for the duration of a function call.
+-   **Lifecycle**: Data in `memory` is wiped after the function executes.
+-   **Cost**: Reading/writing `memory` is cheaper than `storage` (though not free), but the data does not persist.
+
+```solidity
+function incrementValuesMemory(uint256[] memory arr)
+    public
+    pure
+    returns (uint256[] memory)
+{
+    // We can mutate the array elements because 'arr' is a mutable copy in memory.
+    for (uint256 i = 0; i < arr.length; ++i) {
+        arr[i] += 10;
+    }
+    // Returning the changed array
+    return arr;
+}
+```
+
+## `calldata`: Read-Only External Input
+
+-   **Location**: A special data location for external function parameters.
+-   **Read-Only**: You cannot modify data in calldata; it’s immutable.
+-   **Gas Optimization**: Using calldata for external function parameters (instead of memory) can save gas, because Solidity can read directly from the transaction call data instead of making a full copy in memory.
+
+```solidity
+function sumArray(uint256[] calldata arr) external pure returns (uint256) {
+    uint256 sum = 0;
+    for (uint256 i = 0; i < arr.length; i++) {
+        sum += arr[i];
+    }
+    return sum;
+}
+```
+
+-   Any attempt to modify arr (e.g., `arr[i] = ...`) will fail to compile.
+
+## Best Practices
+
+-   **Use `calldata` for External Read-Only Params**:
+    -   If you only need to read from parameters, mark them as `calldata` to save gas (no copying into memory).
+-   **Avoid Large Copies**:
+    -   Copying large arrays from `storage` to `memory` can be expensive. Consider streaming or chunking if you need partial data.
+-   **Use `storage` Wisely**:
+    -   Minimize writes to `storage`. If possible, only store essential data. Reading from and especially writing to `storage` is the biggest cost in Solidity.
 
 # Transient Storage
 
 # Send Ether
 
+# Function Selector
+
 # Call & Delegatecall
+
+# Create, Create2, Create3, and CreateX
+
+# ABI Encode & Decode
+
+# Bitwise Operations
+
+# Assembly
 
 # References
 
