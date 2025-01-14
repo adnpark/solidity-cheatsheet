@@ -2028,6 +2028,45 @@ function sumArray(uint256[] calldata arr) external pure returns (uint256) {
 
 # Transient Storage
 
+-   Transient storage is a new feature introduced to Ethereum through EIP-1153.
+-   It provides a special type of storage for Ethereum smart contracts that:
+
+    -   Exists only during a single transaction.
+    -   Automatically resets at the end of the transaction.
+    -   Does not incur persistent storage costs (unlike regular storage, which is expensive because it remains on-chain indefinitely).
+
+-   Transient storage is implemented through two new opcodes:
+
+    -   `TSTORE`: Temporarily stores a value in transient storage.
+    -   `TLOAD`: Retrieves a value from transient storage.
+
+```solidity
+contract ReentrancyGuard {
+    bytes32 constant SLOT = 0;
+
+    modifier nonreentrant() {
+        assembly {
+            if tload(SLOT) { revert(0, 0) }
+            tstore(SLOT, 1)
+        }
+        _;
+        assembly {
+            tstore(SLOT, 0)
+        }
+    }
+}
+```
+
+One practical example of transient storage is using it for a reentrancy guard. Normally, you’d store a boolean flag in contract storage to indicate that a function is currently being executed. With transient storage, you can use the `TSTORE` and `TLOAD` opcodes instead, which let you store and read this flag during the transaction without writing to storage. This not only makes the guard cheaper to implement, but also avoids cluttering your contract’s persistent state.
+
+**Differences from Existing Data Locations**
+| Data Location | Persistence | Cost | Typical Usage |
+| --------------------- | ---------------------------- | ------------------ | ------------------------------------------------------------ |
+| **storage** | Persists across transactions | High | State variables, permanent contract data |
+| **memory** | Temporary (function scope) | Medium | Local variables, function operations |
+| **calldata** | Read-only, external inputs | Low | External function parameters |
+| **Transient Storage** | Only within one transaction | Lower than storage | Ephemeral data used across calls within the same transaction |
+
 # Send Ether
 
 # Function Selector
