@@ -124,7 +124,12 @@ _This cheatsheet is based on version 0.8.29_
   - [`calldata`: Read-Only External Input](#calldata-read-only-external-input)
   - [Best Practices](#best-practices-4)
 - [Transient Storage](#transient-storage)
-- [Send Ether](#send-ether)
+- [Sending Ether](#sending-ether)
+  - [Overview](#overview)
+    - [transfer](#transfer)
+    - [send](#send)
+    - [call](#call)
+    - [Best Practices](#best-practices-5)
 - [Function Selector](#function-selector)
 - [Call \& Delegatecall](#call--delegatecall)
 - [Create, Create2, Create3, and CreateX](#create-create2-create3-and-createx)
@@ -2070,7 +2075,76 @@ contract ReentrancyGuard {
 | **calldata** | Read-only, external inputs | Low | External function parameters |
 | **Transient Storage** | Only within one transaction | Lower than storage | Ephemeral data used across calls within the same transaction |
 
-# Send Ether
+# Sending Ether
+
+## Overview
+
+| **Method**   | **Gas Forwarded**                        | **On Failure**             | **Return Type**                | **Recommended Usage**             |
+| ------------ | ---------------------------------------- | -------------------------- | ------------------------------ | --------------------------------- |
+| **transfer** | 2,300 gas (fixed)                        | Auto-reverts               | No return (reverts)            | Not recommended                   |
+| **send**     | 2,300 gas (fixed)                        | Does not revert            | bool (success/fail)            | Not recommended                   |
+| **call**     | All remaining gas (or a specified value) | Does not revert by default | (bool, bytes) (success + data) | Recommended with reentrancy guard |
+
+### transfer
+
+-   Forwards a **fixed 2,300 gas** to the recipient’s fallback/receive function.
+-   If the call fails (e.g., the fallback function uses more than 2,300 gas or reverts), `transfer` will automatically revert the entire transaction.
+-   If future Ethereum upgrades raise the fallback gas cost or the logic changes, `transfer` might break.
+
+```solidity
+function transfer(address payable _to, uint256 _amount) external {
+    _to.transfer(_amount);
+    // If it fails, entire function reverts automatically
+}
+```
+
+### send
+
+-   Also forwards 2,300 gas to the recipient’s fallback function.
+-   Does not revert on failure by default. Instead, it returns false if the call fails.
+-   Generally considered obsolete in favor of `transfer`, or `call`.
+
+```solidity
+function send(address payable _to, uint256 _amount) external {
+    bool success = _to.send(_amount);
+    require(success, "Send failed");
+}
+```
+
+### call
+
+```solidity
+(bool success, bytes memory data) = recipient.call{value: amount, gas: gasAmount}("");
+
+```
+
+-   Forwards all remaining gas by default, or a specified amount if you use `gas: gasAmount`.
+-   Does not automatically revert; you must handle the success boolean.
+-   `call` is more future-proof and flexible. Recommended for most use cases with reentrancy guards or checks-effects-interactions pattern.
+
+Simple Ether send:
+
+```solidity
+function flexibleCall(address payable _to, uint256 _amount) external {
+    (bool success, ) = _to.call{value: _amount}("");
+    require(success, "Call failed");
+}
+```
+
+Calling a function with data:
+
+```solidity
+function callFunction(address _contract, bytes memory _data, uint256 _amount) external {
+    (bool success, bytes memory returnedData) = _contract.call{value: _amount}(_data);
+    require(success, "Low-level call failed");
+    // returnedData may contain a return value
+}
+```
+
+### Best Practices
+
+-   `transfer` and `send` are no longer recommended in most modern Solidity patterns because of their 2,300 gas limit and potential for breakage if fallback logic changes.
+-   `call` with proper error handling (checking the return boolean) and reentrancy protections is the current best practice for sending Ether.
 
 # Function Selector
 
