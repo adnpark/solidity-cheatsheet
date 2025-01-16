@@ -131,6 +131,10 @@ _This cheatsheet is based on version 0.8.29_
     - [call](#call)
     - [Best Practices](#best-practices-5)
 - [Function Selector](#function-selector)
+  - [How is the Function Selector Computed?](#how-is-the-function-selector-computed)
+  - [Layout of Calldata](#layout-of-calldata)
+  - [Function Overloading and Selectors](#function-overloading-and-selectors)
+  - [Collision Issues](#collision-issues)
 - [Call \& Delegatecall](#call--delegatecall)
 - [Create, Create2, Create3, and CreateX](#create-create2-create3-and-createx)
 - [ABI Encode \& Decode](#abi-encode--decode)
@@ -2148,6 +2152,63 @@ function callFunction(address _contract, bytes memory _data, uint256 _amount) ex
 
 # Function Selector
 
+A **function selector** is a **4-byte (8-hex-digit)** identifier for a function. When a contract is called, **the first 4 bytes** of the calldata are used to determine which function should be invoked within the contract.
+
+1. **Location**: The function selector resides at the **start** of the transaction’s data (calldata).
+2. **Purpose**: It **selects** which function in the contract to call. If a contract doesn’t have a matching selector, it triggers the fallback or receive function (if defined).
+
+## How is the Function Selector Computed?
+
+The function selector for a given function is computed as the **first 4 bytes** of the **Keccak-256 hash** of the function’s **signature string**.
+
+```solidity
+bytes32 hash = keccak256("transfer(address,uint256)");
+bytes4 selector = bytes4(hash);  // first 4 bytes
+```
+
+## Layout of Calldata
+
+When you call a function on a contract via a low-level call or transaction, the calldata typically follows this format:
+
+| **Bytes Range** | **Purpose**                      |
+| --------------- | -------------------------------- |
+| 0x00 - 0x03     | Function selector (4 bytes)      |
+| 0x04 - end      | Encoded function arguments (ABI) |
+
+For instance, a call to `transfer(address to, uint256 amount)` might have:
+
+-   **First 4 bytes**: `0xa9059cbb` (the selector).
+-   **Next 32 bytes**: Encoded `to` address (padded to 32 bytes).
+-   **Next 32 bytes**: Encoded `amount` (256-bit integer).
+
+## Function Overloading and Selectors
+
+Solidity supports function overloading: multiple functions can share the same name but have different parameter types.
+
+-   Each overloaded function has a unique signature string (because the parameter types differ).
+-   This results in different keccak-256 hashes and thus different 4-byte selectors.
+
+```solidity
+function foo(uint256 x) external { /* ... */ }
+function foo(uint256 x, uint256 y) external { /* ... */ }
+```
+
+## Collision Issues
+
+-   The function selector is derived from: `bytes4(keccak256(functionSignatureString))`.
+-   Because it’s only 4 bytes, there are `2^32` possible selectors, which is about 4.29 billion unique values.
+-   In theory (and sometimes in practice), **two different function signatures** can **hash** to the same 4-byte prefix. This is called a **collision**.
+-   In most modern Solidity compilers, the compiler **fails** or warns at compile time if it detects a collision among the function signatures in your contract.
+
+```solidity
+contract WontCompile {
+    // function selector of collate_propagate_storage: 0x42966c68
+    function collate_propagate_storage(bytes16 x) external {}
+    // function selector of burn: 0x42966c68
+    function burn(uint256 amount) external {}
+}
+```
+
 # Call & Delegatecall
 
 # Create, Create2, Create3, and CreateX
@@ -2165,3 +2226,8 @@ function callFunction(address _contract, bytes memory _data, uint256 _amount) ex
 -   [Solidity Cheatsheet and Best practices](https://github.com/manojpramesh/solidity-cheatsheet/)
 -   [Solidity Gas Optimization Techniques: Loops](https://hackmd.io/@totomanov/gas-optimization-loops#Solidity-Gas-Optimization-Techniques-Loops)
 -   [Gas Optimization In Solidity: Strategies For Cost-Effective Smart Contracts](https://hacken.io/discover/solidity-gas-optimization/)
+-   [Understanding the Function Selector in Solidity](https://www.rareskills.io/post/function-selector)
+
+```
+
+```
