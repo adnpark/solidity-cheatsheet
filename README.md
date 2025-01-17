@@ -136,6 +136,14 @@ _This cheatsheet is based on version 0.8.29_
   - [Function Overloading and Selectors](#function-overloading-and-selectors)
   - [Collision Issues](#collision-issues)
 - [Call \& Delegatecall](#call--delegatecall)
+  - [Introduction to Low-Level Calls](#introduction-to-low-level-calls)
+    - [Why Use Low-Level Calls?](#why-use-low-level-calls)
+  - [`call`](#call-1)
+    - [Behavior](#behavior)
+  - [`delegatecall`](#delegatecall)
+    - [Behavior](#behavior-1)
+  - [`staticcall`](#staticcall)
+  - [Security \& Best Practices](#security--best-practices)
 - [Create, Create2, Create3, and CreateX](#create-create2-create3-and-createx)
 - [ABI Encode \& Decode](#abi-encode--decode)
 - [Bitwise Operations](#bitwise-operations)
@@ -2211,6 +2219,142 @@ contract WontCompile {
 
 # Call & Delegatecall
 
+## Introduction to Low-Level Calls
+
+In Solidity, you can interact with other contracts or addresses at a low level using:
+
+-   `call`
+-   `delegatecall`
+-   (less common) `staticcall` (for read-only calls)
+
+These are lower-level functions than the usual contract function calls because they bypass the Solidity function name → selector → ABI encoding process (unless you manually encode/decode arguments and return data). They return success/failure booleans and raw byte data rather than automatically reverting on failure or decoding data.
+
+### Why Use Low-Level Calls?
+
+1. **Dynamic function calls**: If you only know at runtime which contract or function signature you’re calling.
+2. **Proxies**: Common pattern for upgradeable contracts or decoupling logic from storage.
+3. **Manual gas management**: You can specify the exact gas or handle reverts manually.
+
+## `call`
+
+`call` allows you to call a specified address (contract or EOA) with custom calldata, value (Ether), and an optional gas parameter.
+
+```solidity
+(bool success, bytes memory returnedData) = targetAddress.call{value: etherAmount, gas: gasAmount}(calldata);
+```
+
+### Behavior
+
+-   **Does Not Auto-Revert**: If the call fails (e.g., the target reverts), `success` will be `false`. The state changes in your contract up to that point remain unless you manually revert.
+-   **Returns Raw Data**: `returnedData` is the raw bytes the target contract returned. You must decode it if you expect a specific type (e.g., an integer or a boolean).
+-   **Forwards Gas**: By default, `call` will forward all remaining gas. You can specify a `gas: someAmount` to limit it.
+-   **Potential Reentrancy**: Because you may be forwarding a lot of gas, be mindful of reentrancy vulnerabilities if your contract’s state is updated before calling out.
+
+```solidity
+function callTransfer(address _token, address _to, uint256 _amount) external {
+    // Encode the function selector and arguments for an ERC20 transfer
+    bytes memory data = abi.encodeWithSelector(
+        bytes4(keccak256("transfer(address,uint256)")),
+        _to,
+        _amount
+    );
+
+    // Low-level call
+    (bool success, bytes memory returnData) = _token.call(data);
+
+    require(success, "call to transfer failed");
+
+    // Optionally decode the returned data (many ERC20s return bool, but not all)
+    // bool transferSuccess = abi.decode(returnData, (bool));
+}
+```
+
+## `delegatecall`
+
+`delegatecall` is similar to `call` but crucially **executes the code of the target contract in the context of the caller’s state**. This is the foundation for **proxy** contracts or **upgradeable** contract patterns.
+
+```solidity
+(bool success, bytes memory returnedData) = targetAddress.delegatecall(calldata);
+```
+
+### Behavior
+
+-   **Executes in Caller’s Context**:
+    -   `msg.sender` and `msg.value` remain the same as in the original call that reached the caller.
+    -   Any storage changes (writes) made by the executed code affect the caller contract’s storage layout.
+-   **No Ether Transfer**:
+    -   Unlike `call`, you can’t directly send Ether with `delegatecall`. It only executes code with the current call’s context.
+-   **State & Storage Layout**:
+    -   You must ensure the storage layout of the caller and the target match if the target code writes to storage. Mismatched layouts lead to corruption or undefined behavior.
+-   **Returns**:
+    -   Similar to `call`, you get `(bool success, bytes memory returnData)`. You must handle them manually.
+
+```solidity
+contract Proxy {
+    address public implementation; // Points to logic contract
+
+    constructor(address _impl) {
+        implementation = _impl;
+    }
+
+    fallback() external payable {
+        // Forward all calls to 'implementation' using delegatecall
+        (bool success, bytes memory data) = implementation.delegatecall(msg.data);
+        if (!success) {
+            assembly {
+                revert(add(data, 32), mload(data))
+            }
+        }
+        assembly {
+            return(add(data, 32), mload(data))
+        }
+    }
+}
+```
+
+## `staticcall`
+
+`staticcall` is another low-level function used for read-only calls. It reverts if the called code attempts to modify state (like writing to storage or emitting events).
+
+```solidity
+(bool success, bytes memory returnData) = targetAddress.staticcall(calldata);
+```
+
+| Aspect                     | call                                                                  | delegatecall                                                                                            |
+| -------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **State Context**          | Runs in the **target’s** context. Writes in the **target’s** storage. | Runs in the **caller’s** context. Writes in the **caller’s** storage.                                   |
+| **msg.sender / msg.value** | **msg.sender** is the caller (the contract executing `call`).         | **msg.sender** remains the original external address or higher-level caller.                            |
+| **Ether Transfer**         | You can send Ether along with it (`value: X`).                        | No direct Ether transfer is possible.                                                                   |
+| **Common Use Case**        | Directly calling external contracts, optionally sending Ether.        | Proxy patterns, libraries, or upgradeable contracts (code is borrowed but state remains in the caller). |
+| **Gas Forwarding**         | Forwards all remaining gas unless specified otherwise.                | Same, but in the caller’s context (no Ether).                                                           |
+
+## Security & Best Practices
+
+1. **Check Return Values**
+
+-   Both `call` and `delegatecall` return a boolean indicating success/failure. Always check it.
+
+2. **Handle returnData**
+
+-   If the called function returns data, decode it if you care about it.
+-   If the call reverts with a reason string, that’s included in `returnData`. You can bubble it up using inline assembly or revert with your own error.
+
+3. **Protect Against Reentrancy**
+
+-   If you use `call` to forward large amounts of gas, your contract can be reentered. Use patterns like **Checks-Effects-Interactions** or **ReentrancyGuard**.
+
+4. **Proxy Storage Layout**
+
+-   With `delegatecall`, ensure the **implementation** contract’s storage layout is compatible with the proxy contract’s layout. If you add new variables in the implementation or reorder them, you can break or corrupt the proxy’s storage.
+
+5. **Avoid Arbitrary Delegatecalls**
+
+-   Letting users choose any target for `delegatecall` is a critical security hole. Restrict target addresses or function signatures if you want safe upgrade patterns.
+
+6. **Gas Estimation**
+
+-   Low-level calls might confuse the Solidity gas estimator. You sometimes need to manually specify gas or test thoroughly to avoid out-of-gas issues.
+
 # Create, Create2, Create3, and CreateX
 
 # ABI Encode & Decode
@@ -2227,7 +2371,3 @@ contract WontCompile {
 -   [Solidity Gas Optimization Techniques: Loops](https://hackmd.io/@totomanov/gas-optimization-loops#Solidity-Gas-Optimization-Techniques-Loops)
 -   [Gas Optimization In Solidity: Strategies For Cost-Effective Smart Contracts](https://hacken.io/discover/solidity-gas-optimization/)
 -   [Understanding the Function Selector in Solidity](https://www.rareskills.io/post/function-selector)
-
-```
-
-```
