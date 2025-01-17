@@ -143,6 +143,7 @@ _This cheatsheet is based on version 0.8.29_
   - [`delegatecall`](#delegatecall)
     - [Behavior](#behavior-1)
   - [`staticcall`](#staticcall)
+  - [Comparison](#comparison)
   - [Security \& Best Practices](#security--best-practices)
 - [Create, Create2, Create3, and CreateX](#create-create2-create3-and-createx)
 - [ABI Encode \& Decode](#abi-encode--decode)
@@ -2319,6 +2320,8 @@ contract Proxy {
 ```solidity
 (bool success, bytes memory returnData) = targetAddress.staticcall(calldata);
 ```
+
+## Comparison
 
 | Aspect                     | call                                                                  | delegatecall                                                                                            |
 | -------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
