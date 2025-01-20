@@ -6,150 +6,155 @@ _This cheatsheet is based on version 0.8.29_
 
 # Table of Contents
 
-- [Solidity Master Cheatsheet](#solidity-master-cheatsheet)
-- [Table of Contents](#table-of-contents)
-- [Getting Started](#getting-started)
-- [Specifying compiler version](#specifying-compiler-version)
-- [Basic Data Types](#basic-data-types)
-  - [Summary](#summary)
-  - [`bool`](#bool)
-  - [Integers: `uint` and `int`](#integers-uint-and-int)
-  - [`address` and `address payable`](#address-and-address-payable)
-  - [`bytes` and `bytesN`](#bytes-and-bytesn)
-  - [`string`](#string)
-- [Variables \& Visibility](#variables--visibility)
-  - [State Variables](#state-variables)
-    - [Constants](#constants)
-    - [Immutable Variables](#immutable-variables)
-  - [Local Variables](#local-variables)
-  - [Global (Built-in) Variables](#global-built-in-variables)
-  - [Visibility Keywords](#visibility-keywords)
-    - [Visibility Accessible By Common Use Cases](#visibility-accessible-by-common-use-cases)
-    - [`public`](#public)
-    - [`external`](#external)
-    - [`internal`](#internal)
-    - [`private`](#private)
-  - [Best Practices for Visibility](#best-practices-for-visibility)
-- [Functions](#functions)
-  - [Basic Syntax](#basic-syntax)
-  - [Visibility](#visibility)
-- [State Mutability: view, pure, and payable](#state-mutability-view-pure-and-payable)
-  - [Return Values](#return-values)
-  - [Function Parameters and Data Location](#function-parameters-and-data-location)
-  - [Overloading and Overriding](#overloading-and-overriding)
-  - [Internal vs External Calls](#internal-vs-external-calls)
-  - [Gas Considerations](#gas-considerations)
-  - [Best Practices for Functions](#best-practices-for-functions)
-- [Control Flow](#control-flow)
-  - [If / Else Statements](#if--else-statements)
-  - [`require`](#require)
-  - [For Loops](#for-loops)
-  - [While Loops](#while-loops)
-  - [Do-While Loops](#do-while-loops)
-  - [Break and Continue](#break-and-continue)
-  - [Best Practices for Loops](#best-practices-for-loops)
-    - [Vanila Loop](#vanila-loop)
-    - [Array Loop](#array-loop)
-- [Error Handling](#error-handling)
-  - [`require` vs `revert` vs `assert`](#require-vs-revert-vs-assert)
-    - [`require(condition, "Error Message")`](#requirecondition-error-message)
-    - [`revert("Error Message")`](#reverterror-message)
-    - [`assert(condition)`](#assertcondition)
-    - [Key Points:](#key-points)
-  - [Custom Errors (\>=0.8.4)](#custom-errors-084)
-    - [Benefits:](#benefits)
-  - [`try/catch` for External Calls](#trycatch-for-external-calls)
-  - [Best Practices for Error Handling](#best-practices-for-error-handling)
-- [Arrays, Mappings, Structs, Enums](#arrays-mappings-structs-enums)
-  - [Arrays](#arrays)
-    - [Fixed-size Arrays](#fixed-size-arrays)
-    - [Dynamic Arrays](#dynamic-arrays)
-    - [Declaring and Using Arrays](#declaring-and-using-arrays)
-      - [Storage vs. Memory](#storage-vs-memory)
-      - [Accessing Elements](#accessing-elements)
-      - [Length](#length)
-      - [Push and Pop (Dynamic Arrays in Storage)](#push-and-pop-dynamic-arrays-in-storage)
-      - [Gas Considerations:](#gas-considerations-1)
-  - [Mappings](#mappings)
-  - [Structs](#structs)
-  - [User Defined Value Types](#user-defined-value-types)
-    - [Motivation](#motivation)
-    - [Syntax](#syntax)
-    - [Wrapping and Unwrapping](#wrapping-and-unwrapping)
-    - [Operations and Conversions](#operations-and-conversions)
-  - [Enums](#enums)
-    - [Enum Advantages:](#enum-advantages)
-  - [Best Practices and Tips](#best-practices-and-tips)
-- [Modifiers](#modifiers)
-  - [Syntax](#syntax-1)
-  - [Anatomy of a Modifier](#anatomy-of-a-modifier)
-  - [Multiple Modifiers on One Function](#multiple-modifiers-on-one-function)
-- [Events](#events)
-  - [Key Characteristics](#key-characteristics)
-  - [Declaring Events](#declaring-events)
-  - [Emitting Events](#emitting-events)
-  - [Viewing Events Off-Chain](#viewing-events-off-chain)
-  - [Indexed vs. Non-Indexed Parameters](#indexed-vs-non-indexed-parameters)
-  - [Common Use Cases](#common-use-cases)
-  - [Simple Example](#simple-example)
-  - [Best Practices](#best-practices)
-- [Contract Inheritance \& Interfaces](#contract-inheritance--interfaces)
-  - [Contract Inheritance](#contract-inheritance)
-    - [Single Inheritance](#single-inheritance)
-    - [Multiple Inheritance](#multiple-inheritance)
-    - [Overriding Functions](#overriding-functions)
-    - [Constructors in Inheritance](#constructors-in-inheritance)
-  - [Interfaces](#interfaces)
-    - [Implementing an Interface](#implementing-an-interface)
-    - [Using Interfaces](#using-interfaces)
-    - [Combining Inheritance and Interfaces](#combining-inheritance-and-interfaces)
-    - [Abstract Contracts](#abstract-contracts)
-    - [Diamond Inheritance and the “Linearization of Base Contracts”](#diamond-inheritance-and-the-linearization-of-base-contracts)
-  - [Best Practices](#best-practices-1)
-- [Libraries](#libraries)
-  - [Key Characteristics of Libraries](#key-characteristics-of-libraries)
-  - [Library Function Types](#library-function-types)
-    - [Example: Internal Library](#example-internal-library)
-    - [Example: External Library](#example-external-library)
-  - [Library for Struct Extensions](#library-for-struct-extensions)
-  - [Best Practices](#best-practices-2)
-- [Payable, Fallback, and Receive](#payable-fallback-and-receive)
-  - [`payable` Keyword](#payable-keyword)
-  - [`receive()` Function](#receive-function)
-  - [`fallback()` Function](#fallback-function)
-  - [Best Practices](#best-practices-3)
-- [Data Locations: `storage`, `memory`, `calldata`](#data-locations-storage-memory-calldata)
-  - [`storage`: Persistent, On-Chain Data](#storage-persistent-on-chain-data)
-  - [`memory`: Temporary, In-Function Workspace](#memory-temporary-in-function-workspace)
-  - [`calldata`: Read-Only External Input](#calldata-read-only-external-input)
-  - [Best Practices](#best-practices-4)
-- [Transient Storage](#transient-storage)
-- [Sending Ether](#sending-ether)
-  - [Overview](#overview)
-    - [transfer](#transfer)
-    - [send](#send)
-    - [call](#call)
-    - [Best Practices](#best-practices-5)
-- [Function Selector](#function-selector)
-  - [How is the Function Selector Computed?](#how-is-the-function-selector-computed)
-  - [Layout of Calldata](#layout-of-calldata)
-  - [Function Overloading and Selectors](#function-overloading-and-selectors)
-  - [Collision Issues](#collision-issues)
-- [Call \& Delegatecall](#call--delegatecall)
-  - [Introduction to Low-Level Calls](#introduction-to-low-level-calls)
-    - [Why Use Low-Level Calls?](#why-use-low-level-calls)
-  - [`call`](#call-1)
-    - [Behavior](#behavior)
-  - [`delegatecall`](#delegatecall)
-    - [Behavior](#behavior-1)
-  - [`staticcall`](#staticcall)
-  - [Comparison](#comparison)
-  - [Security \& Best Practices](#security--best-practices)
-- [Create, Create2, Create3, and CreateX](#create-create2-create3-and-createx)
-- [ABI Encode \& Decode](#abi-encode--decode)
-- [Bitwise Operations](#bitwise-operations)
-- [Assembly](#assembly)
-- [References](#references)
+-   [Solidity Master Cheatsheet](#solidity-master-cheatsheet)
+-   [Table of Contents](#table-of-contents)
+-   [Getting Started](#getting-started)
+-   [Specifying compiler version](#specifying-compiler-version)
+-   [Basic Data Types](#basic-data-types)
+    -   [Summary](#summary)
+    -   [`bool`](#bool)
+    -   [Integers: `uint` and `int`](#integers-uint-and-int)
+    -   [`address` and `address payable`](#address-and-address-payable)
+    -   [`bytes` and `bytesN`](#bytes-and-bytesn)
+    -   [`string`](#string)
+-   [Variables \& Visibility](#variables--visibility)
+    -   [State Variables](#state-variables)
+        -   [Constants](#constants)
+        -   [Immutable Variables](#immutable-variables)
+    -   [Local Variables](#local-variables)
+    -   [Global (Built-in) Variables](#global-built-in-variables)
+    -   [Visibility Keywords](#visibility-keywords)
+        -   [Visibility Accessible By Common Use Cases](#visibility-accessible-by-common-use-cases)
+        -   [`public`](#public)
+        -   [`external`](#external)
+        -   [`internal`](#internal)
+        -   [`private`](#private)
+    -   [Best Practices for Visibility](#best-practices-for-visibility)
+-   [Functions](#functions)
+    -   [Basic Syntax](#basic-syntax)
+    -   [Visibility](#visibility)
+-   [State Mutability: view, pure, and payable](#state-mutability-view-pure-and-payable)
+    -   [Return Values](#return-values)
+    -   [Function Parameters and Data Location](#function-parameters-and-data-location)
+    -   [Overloading and Overriding](#overloading-and-overriding)
+    -   [Internal vs External Calls](#internal-vs-external-calls)
+    -   [Gas Considerations](#gas-considerations)
+    -   [Best Practices for Functions](#best-practices-for-functions)
+-   [Control Flow](#control-flow)
+    -   [If / Else Statements](#if--else-statements)
+    -   [`require`](#require)
+    -   [For Loops](#for-loops)
+    -   [While Loops](#while-loops)
+    -   [Do-While Loops](#do-while-loops)
+    -   [Break and Continue](#break-and-continue)
+    -   [Best Practices for Loops](#best-practices-for-loops)
+        -   [Vanila Loop](#vanila-loop)
+        -   [Array Loop](#array-loop)
+-   [Error Handling](#error-handling)
+    -   [`require` vs `revert` vs `assert`](#require-vs-revert-vs-assert)
+        -   [`require(condition, "Error Message")`](#requirecondition-error-message)
+        -   [`revert("Error Message")`](#reverterror-message)
+        -   [`assert(condition)`](#assertcondition)
+        -   [Key Points:](#key-points)
+    -   [Custom Errors (\>=0.8.4)](#custom-errors-084)
+        -   [Benefits:](#benefits)
+    -   [`try/catch` for External Calls](#trycatch-for-external-calls)
+    -   [Best Practices for Error Handling](#best-practices-for-error-handling)
+-   [Arrays, Mappings, Structs, Enums](#arrays-mappings-structs-enums)
+    -   [Arrays](#arrays)
+        -   [Fixed-size Arrays](#fixed-size-arrays)
+        -   [Dynamic Arrays](#dynamic-arrays)
+        -   [Declaring and Using Arrays](#declaring-and-using-arrays)
+            -   [Storage vs. Memory](#storage-vs-memory)
+            -   [Accessing Elements](#accessing-elements)
+            -   [Length](#length)
+            -   [Push and Pop (Dynamic Arrays in Storage)](#push-and-pop-dynamic-arrays-in-storage)
+            -   [Gas Considerations:](#gas-considerations-1)
+    -   [Mappings](#mappings)
+    -   [Structs](#structs)
+    -   [User Defined Value Types](#user-defined-value-types)
+        -   [Motivation](#motivation)
+        -   [Syntax](#syntax)
+        -   [Wrapping and Unwrapping](#wrapping-and-unwrapping)
+        -   [Operations and Conversions](#operations-and-conversions)
+    -   [Enums](#enums)
+        -   [Enum Advantages:](#enum-advantages)
+    -   [Best Practices and Tips](#best-practices-and-tips)
+-   [Modifiers](#modifiers)
+    -   [Syntax](#syntax-1)
+    -   [Anatomy of a Modifier](#anatomy-of-a-modifier)
+    -   [Multiple Modifiers on One Function](#multiple-modifiers-on-one-function)
+-   [Events](#events)
+    -   [Key Characteristics](#key-characteristics)
+    -   [Declaring Events](#declaring-events)
+    -   [Emitting Events](#emitting-events)
+    -   [Viewing Events Off-Chain](#viewing-events-off-chain)
+    -   [Indexed vs. Non-Indexed Parameters](#indexed-vs-non-indexed-parameters)
+    -   [Common Use Cases](#common-use-cases)
+    -   [Simple Example](#simple-example)
+    -   [Best Practices](#best-practices)
+-   [Contract Inheritance \& Interfaces](#contract-inheritance--interfaces)
+    -   [Contract Inheritance](#contract-inheritance)
+        -   [Single Inheritance](#single-inheritance)
+        -   [Multiple Inheritance](#multiple-inheritance)
+        -   [Overriding Functions](#overriding-functions)
+        -   [Constructors in Inheritance](#constructors-in-inheritance)
+    -   [Interfaces](#interfaces)
+        -   [Implementing an Interface](#implementing-an-interface)
+        -   [Using Interfaces](#using-interfaces)
+        -   [Combining Inheritance and Interfaces](#combining-inheritance-and-interfaces)
+        -   [Abstract Contracts](#abstract-contracts)
+        -   [Diamond Inheritance and the “Linearization of Base Contracts”](#diamond-inheritance-and-the-linearization-of-base-contracts)
+    -   [Best Practices](#best-practices-1)
+-   [Libraries](#libraries)
+    -   [Key Characteristics of Libraries](#key-characteristics-of-libraries)
+    -   [Library Function Types](#library-function-types)
+        -   [Example: Internal Library](#example-internal-library)
+        -   [Example: External Library](#example-external-library)
+    -   [Library for Struct Extensions](#library-for-struct-extensions)
+    -   [Best Practices](#best-practices-2)
+-   [Payable, Fallback, and Receive](#payable-fallback-and-receive)
+    -   [`payable` Keyword](#payable-keyword)
+    -   [`receive()` Function](#receive-function)
+    -   [`fallback()` Function](#fallback-function)
+    -   [Best Practices](#best-practices-3)
+-   [Data Locations: `storage`, `memory`, `calldata`](#data-locations-storage-memory-calldata)
+    -   [`storage`: Persistent, On-Chain Data](#storage-persistent-on-chain-data)
+    -   [`memory`: Temporary, In-Function Workspace](#memory-temporary-in-function-workspace)
+    -   [`calldata`: Read-Only External Input](#calldata-read-only-external-input)
+    -   [Best Practices](#best-practices-4)
+-   [Transient Storage](#transient-storage)
+-   [Sending Ether](#sending-ether)
+    -   [Overview](#overview)
+        -   [transfer](#transfer)
+        -   [send](#send)
+        -   [call](#call)
+        -   [Best Practices](#best-practices-5)
+-   [Function Selector](#function-selector)
+    -   [How is the Function Selector Computed?](#how-is-the-function-selector-computed)
+    -   [Layout of Calldata](#layout-of-calldata)
+    -   [Function Overloading and Selectors](#function-overloading-and-selectors)
+    -   [Collision Issues](#collision-issues)
+-   [Call \& Delegatecall](#call--delegatecall)
+    -   [Introduction to Low-Level Calls](#introduction-to-low-level-calls)
+        -   [Why Use Low-Level Calls?](#why-use-low-level-calls)
+    -   [`call`](#call-1)
+        -   [Behavior](#behavior)
+    -   [`delegatecall`](#delegatecall)
+        -   [Behavior](#behavior-1)
+    -   [`staticcall`](#staticcall)
+    -   [Comparison](#comparison)
+    -   [Security \& Best Practices](#security--best-practices)
+-   [CREATE, CREATE2, Create3, and CreateX](#create-create2-create3-and-createx)
+    -   [CREATE](#create)
+    -   [CREATE2](#create2)
+    -   [Create3](#create3)
+    -   [Comparison](#comparison-1)
+    -   [CreateX](#createx)
+-   [ABI Encode \& Decode](#abi-encode--decode)
+-   [Bitwise Operations](#bitwise-operations)
+-   [Assembly](#assembly)
+-   [References](#references)
 
 # Getting Started
 
@@ -2358,7 +2363,131 @@ contract Proxy {
 
 -   Low-level calls might confuse the Solidity gas estimator. You sometimes need to manually specify gas or test thoroughly to avoid out-of-gas issues.
 
-# Create, Create2, Create3, and CreateX
+# CREATE, CREATE2, Create3, and CreateX
+
+## CREATE
+
+`CREATE` is the most basic and commonly used opcode for contract deployment. It works as follows:
+
+-   Deploys contracts dynamically within other contracts
+-   More cost-effective for deploying multiple contracts
+-   The resulting contract address is determined by the deployer's address and nonce
+-   Doesn't provide address predictability
+
+Using `CREATE`, the address of the newly deployed contract is determined by:
+
+-   `address = rightmost 160 bits of keccak256(rlp(sender, nonce))`
+
+1. `sender`: The address that deploys the contract (an EOA or another contract).
+2. `nonce`: The internal transaction count (nonce) of the sender at the time of creation.
+
+```solidity
+function deployWithCREATE() external returns (address childAddress) {
+    // Simple CREATE deployment
+    Child child = new Child();
+    childAddress = address(child);
+
+    emit Deployed(childAddress, 0);
+}
+```
+
+## CREATE2
+
+`CREATE2` was designed to let you compute a contract’s address in advance, based on a salt and the contract’s init code, enabling so-called “counterfactual deployments.”
+
+`address = rightmost 160 bits of keccak256(0xff | sender | salt | keccak256(init_code))`
+
+Where:
+
+-   `0xff`: A constant single byte to avoid collisions with regular `CREATE`.
+-   `sender`: The address that issues the `CREATE2`.
+-   `salt`: A 32-byte value supplied by the deployer.
+-   `keccak256(init_code)`: The hash of the contract’s creation bytecode.
+
+Normally, CREATE2 is used with the [Deterministic Deployment Proxy contract](https://github.com/Arachnid/deterministic-deployment-proxy) to ensure a fixed `msg.sender` address.
+
+```solidity
+contract Child {
+    uint public x;
+    constructor(uint a) {
+        x = a;
+    }
+}
+
+contract Parent {
+    function deployWithCREATE2(bytes32 salt, uint arg) public {
+        // This complicated expression just tells you how the address
+        // can be pre-computed. It is just there for illustration.
+        // You actually only need ``new Child{salt: salt}(arg)``.
+        address predictedAddress = address(uint160(uint(keccak256(abi.encodePacked(
+            bytes1(0xff),
+            address(this),
+            salt,
+            keccak256(abi.encodePacked(
+                type(Child).creationCode,
+                abi.encode(arg)
+            ))
+        )))));
+
+        Child child = new Child{salt: salt}(arg);
+        require(address(child) == predictedAddress);
+    }
+}
+```
+
+## Create3
+
+`Create3` is not an opcode but a method combining `CREATE` and `CREATE2`:
+
+-   Generates deterministic contract addresses without depending on the contract's bytecode
+-   Address is based **only on `msg.sender` and `salt`**
+-   You can use **different constructor arguments** on multiple chains
+-   More expensive than `CREATE` or `CREATE2` (extra ~55k gas)
+-   Allows deploying contracts to the same address across multiple EVM-compatible blockchains
+
+Usually, Create3 is used with [Create3 Factory](https://github.com/ZeframLou/create3-factory)
+
+```solidity
+  /**
+    @notice Creates a new contract with given `_creationCode` and `_salt`
+    @param _salt Salt of the contract creation, resulting address will be derivated from this value only
+    @param _creationCode Creation code (constructor) of the contract to be deployed, this value doesn't affect the resulting address
+    @param _value In WEI of ETH to be forwarded to child contract
+    @return addr of the deployed contract, reverts on error
+  */
+  function create3(bytes32 _salt, bytes memory _creationCode, uint256 _value) internal returns (address addr) {
+    // Creation code
+    bytes memory creationCode = PROXY_CHILD_BYTECODE;
+
+    // Get target final address
+    addr = addressOf(_salt);
+    if (codeSize(addr) != 0) revert TargetAlreadyExists();
+
+    // Create CREATE2 proxy
+    address proxy; assembly { proxy := create2(0, add(creationCode, 32), mload(creationCode), _salt)}
+    if (proxy == address(0)) revert ErrorCreatingProxy();
+
+    // Call proxy with final init code
+    (bool success,) = proxy.call{ value: _value }(_creationCode);
+    if (!success || codeSize(addr) == 0) revert ErrorCreatingContract();
+  }
+```
+
+## Comparison
+
+| Feature             | CREATE  | CREATE2  | Create3   |
+| ------------------- | ------- | -------- | --------- |
+| Address Determinism | No      | Yes      | Yes       |
+| Bytecode Dependency | Yes     | Yes      | No        |
+| Multi-chain Support | Limited | Possible | Excellent |
+| Gas Cost            | Lowest  | Medium   | Highest   |
+
+## CreateX
+
+[CreateX](https://github.com/pcaversaccio/createx) is a factory smart contract designed to simplify and enhance the usage of CREATE, CREATE2, and Create3:
+
+-   Provides a unified interface for different contract creation methods
+-   Offers additional features and optimizations
 
 # ABI Encode & Decode
 
