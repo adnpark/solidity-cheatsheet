@@ -152,8 +152,6 @@ _This cheatsheet is based on version 0.8.29_
     -   [Comparison](#comparison-1)
     -   [CreateX](#createx)
 -   [ABI Encode \& Decode](#abi-encode--decode)
--   [Bitwise Operations](#bitwise-operations)
--   [Assembly](#assembly)
 -   [References](#references)
 
 # Getting Started
@@ -2490,10 +2488,6 @@ Usually, Create3 is used with [Create3 Factory](https://github.com/ZeframLou/cre
 -   Offers additional features and optimizations
 
 # ABI Encode & Decode
-
-# Bitwise Operations
-
-# Assembly
 
 # References
 
