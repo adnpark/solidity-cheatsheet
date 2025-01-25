@@ -1,3 +1,8 @@
+# Table of Contents
+
+-   [Introduction to the EVM](#introduction-to-the-evm)
+-   [EVM Architecture](#evm-architecture)
+
 # Introduction to the EVM
 
 ## What is VM?
