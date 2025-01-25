@@ -3,6 +3,7 @@
 -   [Introduction to the EVM](#introduction-to-the-evm)
 -   [EVM Architecture](#evm-architecture)
 -   [EVM Execution Environment](#evm-execution-environment)
+-   [Transaction Processing](#transaction-processing)
 
 # Introduction to the EVM
 
