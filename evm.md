@@ -2,6 +2,7 @@
 
 -   [Introduction to the EVM](#introduction-to-the-evm)
 -   [EVM Architecture](#evm-architecture)
+-   [EVM Execution Environment](#evm-execution-environment)
 
 # Introduction to the EVM
 
@@ -91,9 +92,9 @@ Ethereum differs from many older blockchains (like Bitcoin) by employing an **ac
 -   **Externally Owned Accounts (EOAs)**: Controlled by private keys (e.g., user wallets). They have no code.
 -   **Contract Accounts**: Hold contract code (bytecode) and can contain persistent storage.
 
-![account model](images/account.png)
+![account model](images/account-model.png)
 
-2. **Account Fields**
+1. **Account Fields**
 
 -   **Nonce**: Number of transactions sent from an account (for EOAs) or number of contract creations performed by that account (for contract accounts).
 -   **Balance**: Amount of Ether (in wei) owned by the account.
@@ -189,3 +190,157 @@ At a high level:
 -   By combining a **stack-based instruction set**, a **clear separation** of code vs. data, and cryptographic tries for storing global state, the EVM ensures **consistency, isolation, and auditability** for every smart contract operation on Ethereum.
 
 ![evm-putting-it-all-together](images/evm-putting-it-all-together.png)
+
+# EVM Execution Environment
+
+-   The **execution environment** in the Ethereum Virtual Machine (EVM) refers to all the **contextual data** and **runtime resources** provided to a piece of executing code during a transaction or message call.
+-   Each invocation (transaction, call, `create` operation) has its own environment that dictates which opcodes are available, how they behave, and what data they can access.
+
+## Overview of Execution Context
+
+When the EVM runs a transaction or an internal message call, it sets up several context variables:
+
+1. **`msg.sender`**
+
+-   The address that initiated this call.
+    For the **top-level transaction**, msg.sender is the Externally Owned Account (EOA) that signed and sent the transaction.
+    For **internal calls**, msg.sender is the calling contract.
+
+2. **`msg.value`**
+
+-   The amount of Ether (in wei) sent along with this call/transaction.
+-   If a function is not `payable`, sending Ether to it will revert.
+
+3. **`msg.data`**
+
+-   The raw call data (bytes) passed to the function, including the function selector plus encoded parameters.
+-   In Solidity, function arguments are typically decoded from `msg.data` automatically under the hood.
+
+4. **`tx.origin`**
+
+-   The **original sender** of the top-level transaction (always an EOA).
+-   Generally **not** recommended for authorization checks because it can be exploited via calls from malicious contracts.
+
+5. **`gas`**
+
+-   The amount of gas allocated to this execution context. If the code runs out of gas, it reverts.
+-   You can optionally specify how much gas to forward in low-level calls like `call`/`delegatecall`.
+
+6. **Address Variables**
+
+-   `address(this)`: the address of the executing contract.
+-   `msg.sender`: as above, the immediate caller.
+-   In an **internal** `delegatecall`, `address(this)` is still the proxy (caller), not the implementation contract.
+
+8. **Block Context (accessible via opcodes or global variables)**
+
+-   `block.number`: The current block number.
+-   `block.timestamp`: The current block’s timestamp (in seconds).
+-   `block.coinbase`: The miner/validator’s address.
+-   `block.difficulty` or `block.prevrandao`: In older versions, used for difficulty; now it’s used differently in PoS. A random number provided by the beacon chain.
+
+9. **Transaction Context**
+
+-   `tx.gasprice`: The gas price of the transaction.
+-   `tx.origin`: The EOA that started the transaction (mentioned above).
+
+These values define the **who, how much, and why** of the current EVM call frame.
+
+## Transaction Lifecycle
+
+A **transaction** is the external entry point into the Ethereum state transition. It leads to the following steps:
+
+1. **Signature & Validation**
+
+-   The network verifies the transaction’s signature (which EOA signed it) and checks if the sender’s **nonce** is correct.
+-   The transaction includes gas details (gas limit, max fee per gas, etc.) which must be sufficient.
+
+2. **State Preparation**
+
+-   The EVM deducts the **upfront gas cost** from the sender’s balance.
+-   Sets up the execution environment, populating `msg.sender`, `msg.value`, `msg.data`, etc.
+
+3. **Execution**
+
+-   The EVM runs the specified code (e.g., calling a contract function or deploying a contract).
+-   Any errors (e.g., out of gas, revert) cause the **entire state change** to revert.
+
+4. **Final State & Receipt**
+
+-   If successful, any state changes (storage updates, Ether transfers) are committed.
+-   Remaining gas is refunded appropriately, and a transaction **receipt** is produced with logs/events.
+
+# Transaction Processing
+
+-   In Ethereum, **transactions** are the mechanism by which **state transitions** happen in the EVM.
+-   Whether you’re transferring Ether between accounts or invoking a smart contract, it all starts with a transaction.
+
+## Types of Transactions
+
+1. **Externally Owned Account (EOA) → Contract/Account**
+
+-   A user (with a private key) initiates a transaction to call a contract or simply transfer Ether to another address.
+
+2. **Contract → Contract (Message Calls)**
+
+-   Within the EVM, a contract can trigger internal calls, but these are **not top-level transactions**. They’re **sub-calls within an existing transaction**.
+
+3. **Contract Creation**
+
+-   A special transaction without a `to` address, containing contract **creation code** in the data payload.
+-   If successful, it deploys a new contract instance with its own address.
+
+## Transaction Fields (Based on EIP-1559)
+
+![transaction-architecture](images/transaction-architecture.png)
+
+1. **nonce**
+
+-   A per-account counter that ensures each transaction from a given account can only be processed once and in order.
+-   A transaction is valid only if its nonce matches the account’s next expected nonce on chain.
+
+2. **recipient**
+
+-   The 160‑bit address that should receive the transaction. If this field is set to the “zero address” (all zeroes), the transaction is creating a contract instead of sending funds or calling a function.
+
+3. **value**
+
+-   The amount of Ether (in wei) being transferred to the recipient. In contract-creation transactions, this is the initial funding amount for the new contract.
+
+4. **yParity, r, s**
+
+-   These are the **signature** parameters used to verify that the transaction was authorized by the sender’s private key (via ECDSA).
+-   `r` and `s` are outputs of the ECDSA signature algorithm.
+-   `yParity` (sometimes called “v” in legacy transactions) indicates which of the two possible public key solutions was used in the ECDSA signature (it also encodes chain ID in older legacy transactions).
+
+5. **init or data**
+
+-   Holds code for **contract creation** (the new contract’s initialization/constructor bytecode) or **input data for a message call** (function selector + arguments for an existing contract).
+
+6. **gasLimit**
+
+-   The maximum amount of gas the transaction’s execution can consume. If the execution runs out of gas, it reverts. Any unused gas is refunded to the sender.
+
+7. **type**
+
+-   An indicator introduced by EIP‑2718 for “typed transactions.”
+-   Common types:
+    -   0 for legacy transactions,
+    -   1 (EIP‑2930 “access list”),
+    -   2 (EIP‑1559 “dynamic fee” transactions).
+    -   3 (EIP‑4844 “blob” transactions).
+
+8. **maxPriorityFeePerGas**
+
+-   The “tip” per gas that goes to the block producer (miner or validator).
+-   Under EIP‑1559, the base fee is burned, and only the priority fee (tip) is received by the block producer.
+
+9. **maxFeePerGas**
+
+-   The total maximum fee (base fee + priority fee) the sender is willing to pay per gas.
+-   If the actual base fee is lower, the user pays less; but this caps what the user can be charged.
+
+10. **chainId**
+
+-   The unique identifier for the Ethereum network (e.g. 1 for Mainnet, 11155111 for Sepolia).
+-   It’s used in the transaction signing process (part of EIP‑155) to prevent replay attacks on different chains.
