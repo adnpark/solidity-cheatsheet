@@ -122,6 +122,8 @@ Ethereum differs from many older blockchains (like Bitcoin) by employing an **ac
 
 ## EVM Memory Model
 
+![evm architecture](images/evm-architecture.png)
+
 During transaction execution, the EVM provides **ephemeral** storage areas:
 
 1. **Memory**
@@ -139,3 +141,46 @@ During transaction execution, the EVM provides **ephemeral** storage areas:
 
 -   **Memory and stack** are transient: they exist only during the function execution.
 -   **Contract storage** is persistent: changes remain after the transaction ends.
+
+## Distinction Between Code and Data
+
+1. **Code Section**
+
+-   A contract’s deployed bytecode is immutable.
+-   The EVM can only execute code (read as instructions); it cannot modify it or treat it as storage.
+
+2. **Data (Storage, Memory, Call Data)**
+
+-   **Storage**: persistent, contract-specific key-value store.
+-   **Memory**: ephemeral, used for dynamic data within a transaction.
+-   **Calldata**: the input payload of a transaction or message call, read-only.
+
+3. **Why Is This Important?**
+
+-   This separation enforces that smart contract logic is not self-modifying.
+-   Contracts operate on **immutable code** with mutable data in a safe, isolated manner.
+
+## Contract Calls & Message Layer
+
+1. **Messaging**
+
+-   Contracts communicate with each other via message calls (low-level opcodes like `CALL`, `DELEGATECALL`, `STATICCALL`).
+-   Each call spawns a new, nested EVM execution context with its own memory.
+
+2. **Depth Limitation**
+
+-   There’s a max call depth (1024), preventing infinitely recursive calls.
+
+3. **Gas Forwarding**
+
+-   Each call can specify how much gas to forward to the callee, ensuring the caller can maintain enough gas to handle results or reverts.
+
+## Putting It All Together
+
+At a high level:
+
+-   **Every Ethereum node** maintains a replicated copy of the global state (the Merkle trie of accounts).
+-   When a user or contract triggers a transaction, the EVM on each node executes the same bytecode instructions, modifies contract storage or account balances accordingly, and yields a **deterministic result**.
+-   By combining a **stack-based instruction set**, a **clear separation** of code vs. data, and cryptographic tries for storing global state, the EVM ensures **consistency, isolation, and auditability** for every smart contract operation on Ethereum.
+
+![evm-putting-it-all-together](images/evm-putting-it-all-together.png)
