@@ -345,3 +345,111 @@ A **transaction** is the external entry point into the Ethereum state transition
 
 -   The unique identifier for the Ethereum network (e.g. 1 for Mainnet, 11155111 for Sepolia).
 -   It’s used in the transaction signing process (part of EIP‑155) to prevent replay attacks on different chains.
+
+
+# Instruction Set & Gas Model
+
+-   The EVM is a **stack-based** machine that processes bytecode instructions (opcodes).
+-   Each opcode performs a specific action (e.g., arithmetic, control flow, environment queries, storage access) and consumes a certain amount of gas.
+-   This gas model ensures that computational resources are accounted for and prevents abuse like infinite loops or excessive resource consumption.
+
+## EVM Instruction Set Overview
+
+You can find the full list of opcodes [here](https://www.evm.codes/).
+
+1. **Arithmetic & Logic**
+
+-   `ADD, SUB, MUL, DIV, MOD`: Basic arithmetic on 256-bit integers.
+-   `AND, OR, XOR, NOT`: Bitwise operations.
+-   `SHL, SHR`: Bit shifting.
+
+1. **Stack Management**
+
+-   `PUSHn`: Pushes an n-byte immediate value onto the stack (e.g., PUSH1 for 1 byte, up to PUSH32).
+-   `POP`: Removes the top stack item.
+-   `DUPn`: Duplicates the n-th item from the top of the stack.
+-   `SWAPn`: Swaps the top stack item with the n-th item.
+
+3. **Memory & Storage**
+
+-   `MLOAD, MSTORE, MSTORE8`: Read/write to memory (ephemeral during execution).
+-   `SLOAD, SSTORE`: Read/write to contract storage (persists between executions).
+-   `CALLDATACOPY, CODECOPY`: Copy data from call input or contract’s code to memory.
+
+4. **Control Flow**
+
+-   `JUMP, JUMPI`: Unconditional/conditional jump to a program counter (PC) location.
+-   `PC`: Get the current program counter.
+-   `STOP`: Terminate execution successfully.
+-   `REVERT`: Revert execution, undoing state changes.
+
+5. **System / Environmental**
+
+-   `BLOCKHASH`: Get the hash of a recent block.
+-   `COINBASE, TIMESTAMP, NUMBER`: Block metadata (miner address, block timestamp, block number).
+-   `GASPRICE`: Current transaction gas price.
+-   `CALLVALUE, CALLDATASIZE, CALLDATALOAD`: Information about the current call.
+-   `ADDRESS, ORIGIN, CALLER`: The contract’s own address, origin of the transaction, and immediate caller.
+
+6. **Contract Calls / Creation**
+
+-   `CALL, DELEGATECALL, STATICCALL`: Invoke other contracts (or self) in various modes.
+-   `CREATE, CREATE2`: Deploy a new contract, returning its new address.
+
+7. **Logs & Self-Destruct**
+
+-   `LOG0 through LOG4`: Emit an event log with up to 4 indexed topics.
+-   `SELFDESTRUCT`: Destroy the current contract, sending remaining Ether to a specified address, and freeing storage (often yielding a gas refund).
+
+
+## Gas & Why It’s Needed
+The **gas mechanism** in Ethereum ensures that every instruction or operation has a **cost**. This cost is paid by the transaction sender to:
+
+1. **Prevent Infinite Loops**: Without gas, a contract could loop forever, consuming network resources indefinitely.
+2. **Incentivize Efficient Code**: Contracts and dApps must optimize logic to keep gas costs reasonable.
+3. **Compensate Network Validators**: The fee covers the computational resources used to validate and execute the transaction on all nodes.
+
+## Gas Costs of Common Opcodes
+Each opcode has a base gas cost defined in the Yellow Paper or subsequent EIPs. For example:
+
+-   `ADD / SUB`: 3 gas.
+-   `MUL`: 5 gas.
+-   `DIV / MOD`: 5 gas.
+-   `SLOAD`: Typically 2100 gas (though it can vary by context/EIPs like EIP-2929 or EIP-2200).
+-   `SSTORE`: Cost can be 20,000 gas if you’re writing a zero → non-zero storage slot, 5,000 gas if non-zero → zero, or a partial refund if you’re clearing a slot from non-zero to zero.
+-   `CALL`: Base 700 gas, plus dynamic gas for passing data, forwarding gas, etc.
+
+These values can be updated via EIPs (like EIP-150, EIP-2028, EIP-2929), meaning the gas schedule can evolve to match real costs of execution or to mitigate certain DoS vectors.
+
+
+##  Dynamic Gas Factors
+1. **Memory Expansion**
+
+-   Accessing a higher memory index (e.g., storing data at a large offset) can cause a **memory expansion cost**.
+-   Gas usage grows quadratically (or in step increments) with how large the active memory region becomes.
+
+2. **Storage Writes (`SSTORE`)**
+
+-   The cost depends on whether you’re creating a new storage slot (non-zero) or updating an existing one.
+-   Clearing a storage slot (setting it to zero) can grant a **partial gas refund** (up to half of the total gas used in the transaction). This encourages freeing storage.
+
+3. **Call-Related**
+
+-   `CALL` and friends have overhead costs plus a certain amount of gas forwarded to the callee.
+-   The callee might run out of gas if not enough is forwarded, causing a revert.
+
+4. **Data Copying**
+
+-   Copying large amounts of data (e.g., using `CALLDATACOPY` or returning large data from a call) can have costs proportional to data size.
+
+## Gas Refunds
+
+1. **When Refunds Occur**
+
+-   `SELFDESTRUCT`: If a contract self-destructs, it cleans up its storage, yielding a significant refund (though EIP-3529 and others have adjusted or reduced SELFDESTRUCT refunds).
+-   `SSTORE`: Setting a storage slot from a non-zero value to zero can yield a partial refund.
+
+2. **Refund Limit**
+
+-   Refunds cannot exceed half of the total gas consumed by the transaction.
+-   This prevents extreme refund exploitation.
