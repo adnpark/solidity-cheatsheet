@@ -346,7 +346,6 @@ A **transaction** is the external entry point into the Ethereum state transition
 -   The unique identifier for the Ethereum network (e.g. 1 for Mainnet, 11155111 for Sepolia).
 -   It’s used in the transaction signing process (part of EIP‑155) to prevent replay attacks on different chains.
 
-
 # Instruction Set & Gas Model
 
 -   The EVM is a **stack-based** machine that processes bytecode instructions (opcodes).
@@ -401,8 +400,8 @@ You can find the full list of opcodes [here](https://www.evm.codes/).
 -   `LOG0 through LOG4`: Emit an event log with up to 4 indexed topics.
 -   `SELFDESTRUCT`: Destroy the current contract, sending remaining Ether to a specified address, and freeing storage (often yielding a gas refund).
 
-
 ## Gas & Why It’s Needed
+
 The **gas mechanism** in Ethereum ensures that every instruction or operation has a **cost**. This cost is paid by the transaction sender to:
 
 1. **Prevent Infinite Loops**: Without gas, a contract could loop forever, consuming network resources indefinitely.
@@ -410,6 +409,7 @@ The **gas mechanism** in Ethereum ensures that every instruction or operation ha
 3. **Compensate Network Validators**: The fee covers the computational resources used to validate and execute the transaction on all nodes.
 
 ## Gas Costs of Common Opcodes
+
 Each opcode has a base gas cost defined in the Yellow Paper or subsequent EIPs. For example:
 
 -   `ADD / SUB`: 3 gas.
@@ -421,8 +421,8 @@ Each opcode has a base gas cost defined in the Yellow Paper or subsequent EIPs. 
 
 These values can be updated via EIPs (like EIP-150, EIP-2028, EIP-2929), meaning the gas schedule can evolve to match real costs of execution or to mitigate certain DoS vectors.
 
+## Dynamic Gas Factors
 
-##  Dynamic Gas Factors
 1. **Memory Expansion**
 
 -   Accessing a higher memory index (e.g., storing data at a large offset) can cause a **memory expansion cost**.
@@ -453,3 +453,69 @@ These values can be updated via EIPs (like EIP-150, EIP-2028, EIP-2929), meaning
 
 -   Refunds cannot exceed half of the total gas consumed by the transaction.
 -   This prevents extreme refund exploitation.
+
+## The Block Gas Limit / Target
+
+1. **Per-Transaction Gas Limit**
+
+-   Each transaction has a specified `gasLimit` set by the sender, ensuring they don’t run out of funds if the transaction is complex or loops.
+
+2. **Block Gas Limit / Target**
+
+-   Each block has a **max amount of gas** that all included transactions can consume.
+-   Under Proof-of-Stake and EIP-1559, we often talk about a “target gas limit” which can float slightly with base fee adjustments.
+-   This ensures blocks don’t become arbitrarily large and helps keep node requirements stable.
+
+# Self-Destruct & State Clearing
+
+-   In Ethereum, contracts can be permanently destroyed via the `SELFDESTRUCT` opcode (invoked through `selfdestruct(address recipient)` in older Solidity versions or `address(this)selfdestruct(...)` in inline assembly).
+-   When triggered, the contract’s code and storage are effectively removed from the state, and any remaining Ether is transferred to a specified recipient address.
+-   This process also can yield a **gas refund** for clearing storage.
+
+```solidity
+contract SelfDestructExample {
+    address public owner;
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function kill(address payable _recipient) external {
+        require(msg.sender == owner, "Not authorized");
+        // Transfer remaining Ether to _recipient and destroy the contract
+        selfdestruct(_recipient);
+    }
+}
+```
+
+## What Is Self-Destruct?
+
+1. **Definition**
+
+-   `SELFDESTRUCT` is an EVM opcode that **deletes** the contract’s code from the state and marks its storage as freed.
+-   The contract’s Ether balance is sent to a designated address (`recipient`).
+-   After self-destruction, the contract’s code is no longer callable or stored on-chain, although the **address** itself can still receive Ether if it’s called (it just won’t have code to execute).
+
+2. **Usage in Solidity**
+
+-   Historically, one would write `selfdestruct(recipient)` within a contract function.
+-   In newer Solidity versions (from 0.8.18 onward), `selfdestruct` is discouraged or restricted because it complicates certain security assumptions (like code immutability).
+-   Some dev teams ban it altogether in production code unless they have a specific use case.
+
+3. **Refund Mechanism**
+
+-   When `SELFDESTRUCT` is called, the EVM typically grants a gas refund for freeing the contract’s storage.
+-   Over time, EIPs have reduced or planned to remove the refund from `SELFDESTRUCT` (e.g., EIP-3529). The protocol has moved away from encouraging self-destruct as a storage relief measure.
+
+## Redeploying at the Same Address
+
+1. **Same Address, Fresh Code**
+
+-   Normally, once a contract self-destructs, that address is considered “dead code.”
+-   But in Ethereum, the address can **theoretically** receive a new contract’s code later if someone uses `CREATE2` with the same parameters to produce that address.
+-   This phenomenon is sometimes referred to as “**contract resurrection**” or “**re-deploying** at the same address.”
+
+2. **Security Implications**
+
+-   If external code assumes that self-destruct means “address is forever gone,” it could be vulnerable. Another contract with new logic could appear at the same address in the future.
+-   Good practice: Do not rely on self-destruct for permanent immutability of an address. With `CREATE2`, the old address can be revived with new code if the same salt and init code are used.
