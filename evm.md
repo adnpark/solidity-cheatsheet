@@ -4,6 +4,8 @@
 -   [EVM Architecture](#evm-architecture)
 -   [EVM Execution Environment](#evm-execution-environment)
 -   [Transaction Processing](#transaction-processing)
+-   [Instruction Set & Gas Model](#instruction-set-and-gas-model)
+-   [Self-Destruct & State Clearing](#self-destruct-and-state-clearing)
 
 # Introduction to the EVM
 
